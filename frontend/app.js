@@ -140,11 +140,11 @@ fetch('http://127.0.0.1:5000/api/sales_mix')
             font: { family: 'Segoe UI, Arial, sans-serif', color: '#333' },
             showlegend: true,
             legend: {
-                orientation: 'v',
-                y: 0.5,
-                x: 1.05,
-                xanchor: 'left',
-                yanchor: 'middle',
+                orientation: 'h',
+                x: 0.5,
+                y: -0.15,
+                xanchor: 'center',
+                yanchor: 'top',
                 font: { size: 10 }
             },
             annotations: [
@@ -171,7 +171,7 @@ fetch('http://127.0.0.1:5000/api/sales_mix')
                     font: { size: 12, color: '#666' }
                 }
             ],
-            margin: { t: 20, r: 120, b: 60, l: 20 }
+            margin: { t: 20, r: 20, b: 80, l: 20 }
         };
 
         Plotly.newPlot('sales-mix-container', [salesMixTrace], layout, {responsive: true});
@@ -437,10 +437,10 @@ fetch('http://127.0.0.1:5000/api/sales_by_item_type')
                 tickformat: ',.0f'
             },
             legend: {
-                orientation: window.innerWidth < 768 ? 'h' : 'v',
-                y: window.innerWidth < 768 ? -0.25 : 1,
-                x: window.innerWidth < 768 ? 0.5 : 1.02,
-                xanchor: window.innerWidth < 768 ? 'center' : 'left',
+                orientation: 'h',
+                y: -0.2,
+                x: 0.5,
+                xanchor: 'center',
                 yanchor: 'top',
                 bgcolor: 'rgba(255,255,255,0.9)',
                 bordercolor: 'rgba(0,0,0,0.1)',
@@ -449,8 +449,8 @@ fetch('http://127.0.0.1:5000/api/sales_by_item_type')
             },
             margin: { 
                 t: 20, 
-                r: window.innerWidth < 768 ? 20 : 120, 
-                b: window.innerWidth < 768 ? 160 : 140, 
+                r: 20, 
+                b: 120, 
                 l: 80 
             },
             annotations: [
@@ -1033,3 +1033,189 @@ function loadTopItemsByTransfers() {
 
 // Call the function with a delay to ensure DOM is ready
 setTimeout(loadTopItemsByTransfers, 2000);
+
+// Fetch and display Sales Seasonality
+function loadSalesSeasonality() {
+    console.log('Starting to fetch Sales Seasonality...');
+    fetch('http://127.0.0.1:5000/api/sales_seasonality')
+        .then(response => response.json())
+        .then(data => {
+            console.log('Received seasonality data:', data);
+            if (data.error) {
+                console.error('Error:', data.error);
+                const container = document.getElementById('sales-seasonality-container');
+                if (container) {
+                    container.innerHTML = '<p style="color:red;padding:20px;">Error loading Sales Seasonality: ' + data.error + '</p>';
+                }
+                return;
+            }
+
+            // Create stacked area chart for sales seasonality
+            const retailTrace = {
+                x: data.periods,
+                y: data.retail_sales,
+                name: 'Retail Sales',
+                type: 'scatter',
+                mode: 'lines',
+                stackgroup: 'sales',
+                fill: 'tonexty',
+                fillcolor: 'rgba(33, 150, 243, 0.7)',
+                line: {
+                    color: '#2196F3',
+                    width: 2
+                },
+                hovertemplate: 
+                    '<b>%{x}</b><br>' +
+                    'Retail Sales: %{y:$,.0f}<br>' +
+                    'Contribution: %{customdata:.1f}%<br>' +
+                    '<extra></extra>',
+                customdata: data.periods.map((_, index) => 
+                    (data.retail_sales[index] / data.total_sales[index]) * 100
+                )
+            };
+
+            const transfersTrace = {
+                x: data.periods,
+                y: data.retail_transfers,
+                name: 'Retail Transfers',
+                type: 'scatter',
+                mode: 'lines',
+                stackgroup: 'sales',
+                fill: 'tonexty',
+                fillcolor: 'rgba(255, 152, 0, 0.7)',
+                line: {
+                    color: '#FF9800',
+                    width: 2
+                },
+                hovertemplate: 
+                    '<b>%{x}</b><br>' +
+                    'Retail Transfers: %{y:$,.0f}<br>' +
+                    'Contribution: %{customdata:.1f}%<br>' +
+                    '<extra></extra>',
+                customdata: data.periods.map((_, index) => 
+                    (data.retail_transfers[index] / data.total_sales[index]) * 100
+                )
+            };
+
+            const warehouseTrace = {
+                x: data.periods,
+                y: data.warehouse_sales,
+                name: 'Warehouse Sales',
+                type: 'scatter',
+                mode: 'lines',
+                stackgroup: 'sales',
+                fill: 'tonexty',
+                fillcolor: 'rgba(76, 175, 80, 0.7)',
+                line: {
+                    color: '#4CAF50',
+                    width: 2
+                },
+                hovertemplate: 
+                    '<b>%{x}</b><br>' +
+                    'Warehouse Sales: %{y:$,.0f}<br>' +
+                    'Contribution: %{customdata:.1f}%<br>' +
+                    '<extra></extra>',
+                customdata: data.periods.map((_, index) => 
+                    (data.warehouse_sales[index] / data.total_sales[index]) * 100
+                )
+            };
+
+            // Add total sales line trace
+            const totalTrace = {
+                x: data.periods,
+                y: data.total_sales,
+                name: 'Total Sales',
+                type: 'scatter',
+                mode: 'lines+markers',
+                line: {
+                    color: '#1976D2',
+                    width: 3,
+                    dash: 'dot'
+                },
+                marker: {
+                    color: '#1976D2',
+                    size: 8,
+                    line: {
+                        color: '#ffffff',
+                        width: 2
+                    }
+                },
+                hovertemplate: 
+                    '<b>%{x}</b><br>' +
+                    'Total Sales: %{y:$,.0f}<br>' +
+                    'Seasonality Index: %{customdata:.1f}<br>' +
+                    '<extra></extra>',
+                customdata: data.periods.map((_, index) => 
+                    (data.total_sales[index] / data.average_monthly_sales) * 100
+                ),
+                yaxis: 'y2'
+            };
+
+            const layout = {
+                title: {
+                    text: `Peak: ${data.peak_month} ($${data.peak_value.toLocaleString()}) | Valley: ${data.valley_month} ($${data.valley_value.toLocaleString()}) | Current Trend: ${data.trend} | YoY Growth: ${data.year_over_year_growth.toFixed(1)}%`,
+                    font: { size: 12, color: '#333' }
+                },
+                xaxis: {
+                    title: 'Time Period (Month-Year)',
+                    gridcolor: 'rgba(0,0,0,0.1)',
+                    showgrid: true,
+                    tickangle: -45
+                },
+                yaxis: {
+                    title: 'Sales Amount ($)',
+                    gridcolor: 'rgba(0,0,0,0.1)',
+                    showgrid: true,
+                    tickformat: '$,.0f',
+                    side: 'left'
+                },
+                yaxis2: {
+                    title: 'Total Sales Trend ($)',
+                    overlaying: 'y',
+                    side: 'right',
+                    tickformat: '$,.0f',
+                    showgrid: false
+                },
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                hovermode: 'x unified',
+                annotations: [
+                    {
+                        x: 0.02,
+                        y: 0.98,
+                        xref: 'paper',
+                        yref: 'paper',
+                        text: `<b>Seasonality Analysis:</b><br>Current Performance: ${data.seasonal_performance}<br>Seasonality Index: ${data.seasonality_index.toFixed(1)}<br>Months Analyzed: ${data.months_analyzed}<br><br><b>Channel Contributions:</b><br>🔵 Retail: ${data.retail_contribution.toFixed(1)}%<br>🟠 Transfers: ${data.transfers_contribution.toFixed(1)}%<br>🟢 Warehouse: ${data.warehouse_contribution.toFixed(1)}%<br><br><b>Trend Indicators:</b><br>📈 Peak Season: ${data.peak_month}<br>📉 Valley Season: ${data.valley_month}<br>📊 Average Monthly: $${data.average_monthly_sales.toLocaleString()}`,
+                        showarrow: false,
+                        font: { size: 9, color: '#333' },
+                        xanchor: 'left',
+                        yanchor: 'top',
+                        bgcolor: 'rgba(255,255,255,0.95)',
+                        bordercolor: '#1976D2',
+                        borderwidth: 1,
+                        align: 'left'
+                    }
+                ],
+                showlegend: true,
+                legend: {
+                    orientation: 'h',
+                    x: 0.5,
+                    xanchor: 'center',
+                    y: -0.2
+                },
+                margin: { t: 80, r: 60, b: 120, l: 80 }
+            };
+
+            Plotly.newPlot('sales-seasonality-container', [retailTrace, transfersTrace, warehouseTrace, totalTrace], layout, {responsive: true});
+        })
+        .catch(error => {
+            console.error('Error fetching sales seasonality data:', error);
+            const container = document.getElementById('sales-seasonality-container');
+            if (container) {
+                container.innerHTML = '<p style="color:red;padding:20px;">Error loading Sales Seasonality: ' + error.message + '</p>';
+            }
+        });
+}
+
+// Call the function with a delay to ensure DOM is ready
+setTimeout(loadSalesSeasonality, 3000);
