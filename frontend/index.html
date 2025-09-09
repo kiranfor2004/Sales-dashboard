@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Dashboard - Business Intelligence Center</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="header">
+        <h1><i class="fas fa-chart-line"></i> SALES DASHBOARD CENTER</h1>
+        <div class="chart-subtitle">Real-time Business Intelligence & Analytics</div>
+    </div>
+    
+    <div class="dashboard-container">
+        <!-- KPI Cards Section -->
+        <div class="kpi-section">
+            <div class="kpi-card retail">
+                <div class="kpi-title">
+                    <span class="status-indicator status-active"></span>
+                    Current Month Retail Sales
+                </div>
+                <div class="kpi-value" id="current-retail">$0</div>
+                <div class="kpi-change" id="retail-change">Loading...</div>
+            </div>
+            
+            <div class="kpi-card warehouse">
+                <div class="kpi-title">
+                    <span class="status-indicator status-active"></span>
+                    Current Month Warehouse Sales
+                </div>
+                <div class="kpi-value" id="current-warehouse">$0</div>
+                <div class="kpi-change" id="warehouse-change">Loading...</div>
+            </div>
+            
+            <div class="kpi-card" style="border-left-color: #9C27B0;">
+                <div class="kpi-title">
+                    <span class="status-indicator status-active"></span>
+                    Total Business Revenue
+                </div>
+                <div class="kpi-value" id="grand-total">$0</div>
+                <div class="kpi-change" id="revenue-streams">Loading...</div>
+            </div>
+        </div>
+        
+        <!-- Charts Section -->
+        <div class="dashboard-grid">
+            <div class="chart-container">
+                <div class="chart-header">
+                    <div>
+                        <h2 class="chart-title">Overall Sales Performance</h2>
+                        <div class="chart-subtitle">Total Revenue Across All Business Streams</div>
+                        <div class="kpi-description">
+                            <small><strong>Purpose:</strong> Provides top management with complete picture of company scale and performance across revenue streams</small>
+                        </div>
+                    </div>
+                    <div class="status-indicator status-active"></div>
+                </div>
+                <div id="overall-sales-container" class="chart"></div>
+            </div>
+            
+            <div class="chart-container">
+                <div class="chart-header">
+                    <div>
+                        <h2 class="chart-title">Sales Mix - Strategic KPI</h2>
+                        <div class="chart-subtitle">Percentage Contribution by Product Category to Retail Sales</div>
+                        <div class="kpi-description">
+                            <small><strong>Purpose:</strong> Reveals which product categories are primary revenue drivers for strategic decision-making</small>
+                        </div>
+                    </div>
+                    <div class="status-indicator status-active"></div>
+                </div>
+                <div id="sales-mix-container" class="chart"></div>
+            </div>
+            
+            <div class="chart-container">
+                <div class="chart-header">
+                    <div>
+                        <h2 class="chart-title">Top 10 Selling Items - Performance KPI</h2>
+                        <div class="chart-subtitle">Best-Performing Products Ranked by Retail Sales Volume</div>
+                        <div class="kpi-description">
+                            <small><strong>Purpose:</strong> Identifies star products for focused marketing and inventory support to maximize revenue</small>
+                        </div>
+                    </div>
+                    <div class="status-indicator status-active"></div>
+                </div>
+                <div id="top-selling-container" class="chart"></div>
+            </div>
+        </div>
+        
+        <div class="dashboard-grid">
+            <div class="chart-container">
+                <div class="chart-header">
+                    <div>
+                        <h2 class="chart-title">Monthly Sales Performance</h2>
+                        <div class="chart-subtitle">Current vs Previous Month Comparison</div>
+                    </div>
+                    <div class="status-indicator status-active"></div>
+                </div>
+                <div id="kpi-chart-container" class="chart"></div>
+            </div>
+            
+            <div class="chart-container">
+                <div class="chart-header">
+                    <div>
+                        <h2 class="chart-title">Sales by Item Type - Performance KPI</h2>
+                        <div class="chart-subtitle">Retail Sales + Retail Transfers + Warehouse Sales by Category</div>
+                        <div class="kpi-description">
+                            <small><strong>Purpose:</strong> Measures sales performance across product categories to identify top performers and areas needing focus</small>
+                        </div>
+                    </div>
+                    <div class="status-indicator status-active"></div>
+                </div>
+                <div id="chart-container" class="chart"></div>
+            </div>
+            
+            <div class="chart-container">
+                <div class="chart-header">
+                    <div>
+                        <h2 class="chart-title">Sales Transfer Ratio - Efficiency KPI</h2>
+                        <div class="chart-subtitle">Retail Sales ÷ Retail Transfers by Item Type</div>
+                        <div class="kpi-description">
+                            <small><strong>Purpose:</strong> Measures efficiency of product movement between warehouse and retail. Ratio close to 1.0 indicates optimal transfer efficiency</small>
+                        </div>
+                    </div>
+                    <div class="status-indicator status-active"></div>
+                </div>
+                <div id="transfer-ratio-container" class="chart"></div>
+            </div>
+        </div>
+        
+        <div class="dashboard-grid">
+            <div class="chart-container">
+                <div class="chart-header">
+                    <div>
+                        <h2 class="chart-title">Month-over-Month Sales Growth - Trend KPI</h2>
+                        <div class="chart-subtitle">Percentage Change in Retail Sales from Previous Month</div>
+                        <div class="kpi-description">
+                            <small><strong>Purpose:</strong> Measures sales momentum and seasonality for short-term performance tracking and strategic forecasting</small>
+                        </div>
+                    </div>
+                    <div class="status-indicator status-active"></div>
+                </div>
+                <div id="month-growth-container" class="chart"></div>
+            </div>
+            
+            <div class="chart-container">
+                <div class="chart-header">
+                    <div>
+                        <h2 class="chart-title">Inventory Turnover Rate - Efficiency KPI</h2>
+                        <div class="chart-subtitle">Retail Sales ÷ Warehouse Sales Ratio</div>
+                        <div class="kpi-description">
+                            <small><strong>Purpose:</strong> Measures inventory efficiency and product movement speed. Higher rates indicate better cash flow and reduced storage costs</small>
+                        </div>
+                    </div>
+                    <div class="status-indicator status-active"></div>
+                </div>
+                <div id="inventory-turnover-container" class="chart"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="footer">
+        <p>© 2025 Sales Dashboard Center | Powered by Business Intelligence Analytics</p>
+    </div>
+    
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
