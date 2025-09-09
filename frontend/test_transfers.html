@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Transfer KPI Test</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+    <div id="retail-transfers-container" style="width:100%;height:400px;"></div>
+    
+    <script>
+        console.log('Testing Top Items by Retail Transfers KPI...');
+        
+        fetch('http://127.0.0.1:5000/api/top_items_by_transfers')
+            .then(response => {
+                console.log('Response status:', response.status);
+                return response.json();
+            })
+            .then(data => {
+                console.log('Data received:', data);
+                console.log('retail_transfers length:', data.retail_transfers ? data.retail_transfers.length : 'undefined');
+                console.log('display_labels length:', data.display_labels ? data.display_labels.length : 'undefined');
+                
+                if (data.error) {
+                    console.error('API Error:', data.error);
+                    return;
+                }
+
+                // Create the chart
+                const transfersTrace = {
+                    x: data.retail_transfers,
+                    y: data.display_labels,
+                    type: 'bar',
+                    orientation: 'h',
+                    name: 'Retail Transfers',
+                    marker: { color: '#2196F3' }
+                };
+
+                const layout = {
+                    title: 'Top Items by Retail Transfers - Test',
+                    xaxis: { title: 'Number of Retail Transfers' },
+                    yaxis: { title: 'Items' },
+                    margin: { l: 200 }
+                };
+
+                console.log('Creating plot...');
+                Plotly.newPlot('retail-transfers-container', [transfersTrace], layout, {responsive: true});
+                console.log('Plot created successfully!');
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('retail-transfers-container').innerHTML = '<p style="color:red;">Error loading data: ' + error.message + '</p>';
+            });
+    </script>
+</body>
+</html>

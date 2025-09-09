@@ -5,14 +5,24 @@ import pandas as pd
 app = Flask(__name__)
 CORS(app)
 
+# Load data once at startup to improve performance
+print("Loading sales data...")
+try:
+    df = pd.read_csv('../Sales data', sep='\t')
+    print(f"Data loaded successfully! Shape: {df.shape}")
+except Exception as e:
+    print(f"Error loading data: {e}")
+    df = pd.DataFrame()  # Empty dataframe as fallback
+
 @app.route('/api/test', methods=['GET'])
 def test():
-    return jsonify({'message': 'Backend is working'})
+    return jsonify({'message': 'Backend is working', 'data_loaded': len(df) > 0, 'records': len(df)})
 
 @app.route('/api/sales_data', methods=['GET'])
 def get_sales_data():
     try:
-        df = pd.read_csv('../Sales data', sep='\t')
+        if len(df) == 0:
+            return jsonify({'error': 'No data available'})
         return jsonify(df.to_dict(orient='records'))
     except Exception as e:
         return jsonify({'error': str(e)})
@@ -20,8 +30,9 @@ def get_sales_data():
 @app.route('/api/kpi_data', methods=['GET'])
 def get_kpi_data():
     try:
-        df = pd.read_csv('../Sales data', sep='\t')
-        
+        if len(df) == 0:
+            return jsonify({'error': 'No data available'})
+            
         latest_year = df['YEAR'].max()
         latest_month = df[df['YEAR'] == latest_year]['MONTH'].max()
 
@@ -59,7 +70,8 @@ def get_kpi_data():
 @app.route('/api/sales_by_item_type', methods=['GET'])
 def get_sales_by_item_type():
     try:
-        df = pd.read_csv('../Sales data', sep='\t')
+        if len(df) == 0:
+            return jsonify({'error': 'No data available'})
         
         # Group by ITEM TYPE and sum all sales columns
         item_type_sales = df.groupby('ITEM TYPE').agg({
@@ -93,7 +105,8 @@ def get_sales_by_item_type():
 @app.route('/api/sales_transfer_ratio', methods=['GET'])
 def get_sales_transfer_ratio():
     try:
-        df = pd.read_csv('../Sales data', sep='\t')
+        if len(df) == 0:
+            return jsonify({'error': 'No data available'})
         
         # Group by ITEM TYPE and sum relevant columns
         item_type_data = df.groupby('ITEM TYPE').agg({
@@ -139,7 +152,8 @@ def get_sales_transfer_ratio():
 @app.route('/api/overall_sales_performance', methods=['GET'])
 def get_overall_sales_performance():
     try:
-        df = pd.read_csv('../Sales data', sep='\t')
+        if len(df) == 0:
+            return jsonify({'error': 'No data available'})
         
         # Calculate total sales across all revenue streams
         total_retail_sales = df['RETAIL SALES'].sum()
@@ -174,7 +188,8 @@ def get_overall_sales_performance():
 @app.route('/api/sales_mix', methods=['GET'])
 def get_sales_mix():
     try:
-        df = pd.read_csv('../Sales data', sep='\t')
+        if len(df) == 0:
+            return jsonify({'error': 'No data available'})
         
         # Calculate retail sales by item type
         sales_by_item = df.groupby('ITEM TYPE')['RETAIL SALES'].sum().reset_index()
@@ -212,7 +227,8 @@ def get_sales_mix():
 @app.route('/api/top_selling_items', methods=['GET'])
 def get_top_selling_items():
     try:
-        df = pd.read_csv('../Sales data', sep='\t')
+        if len(df) == 0:
+            return jsonify({'error': 'No data available'})
         
         # Group by ITEM CODE and sum retail sales, also get item description
         item_sales = df.groupby(['ITEM CODE', 'ITEM DESCRIPTION'])['RETAIL SALES'].sum().reset_index()
@@ -283,7 +299,8 @@ def get_top_selling_items():
 @app.route('/api/month_over_month_growth', methods=['GET'])
 def get_month_over_month_growth():
     try:
-        df = pd.read_csv('../Sales data', sep='\t')
+        if len(df) == 0:
+            return jsonify({'error': 'No data available'})
         
         # Group by year and month to get monthly sales
         monthly_sales = df.groupby(['YEAR', 'MONTH'])['RETAIL SALES'].sum().reset_index()
@@ -359,7 +376,8 @@ def get_month_over_month_growth():
 @app.route('/api/inventory_turnover_rate', methods=['GET'])
 def get_inventory_turnover_rate():
     try:
-        df = pd.read_csv('../Sales data', sep='\t')
+        if len(df) == 0:
+            return jsonify({'error': 'No data available'})
         
         # Calculate total retail sales and total warehouse sales
         total_retail_sales = float(df['RETAIL SALES'].sum())
@@ -453,7 +471,8 @@ def get_inventory_turnover_rate():
 @app.route('/api/sales_per_supplier', methods=['GET'])
 def get_sales_per_supplier():
     try:
-        df = pd.read_csv('../Sales data', sep='\t')
+        if len(df) == 0:
+            return jsonify({'error': 'No data available'})
         
         # Group by supplier and sum retail sales
         supplier_sales = df.groupby('SUPPLIER')['RETAIL SALES'].sum().reset_index()
@@ -558,5 +577,125 @@ def get_sales_per_supplier():
         error_details = traceback.format_exc()
         return jsonify({'error': f'Error processing sales per supplier data: {str(e)}', 'details': error_details})
 
+@app.route('/api/top_items_by_transfers', methods=['GET'])
+def get_top_items_by_transfers():
+    try:
+        # Group by item and sum retail transfers, also get item description
+        item_transfers = df.groupby(['ITEM CODE', 'ITEM DESCRIPTION'])['RETAIL TRANSFERS'].sum().reset_index()
+        
+        # Filter out items with zero transfers
+        item_transfers = item_transfers[item_transfers['RETAIL TRANSFERS'] > 0]
+        
+        # Sort by retail transfers in descending order and get top 15
+        top_items = item_transfers.sort_values('RETAIL TRANSFERS', ascending=False).head(15)
+        
+        if len(top_items) == 0:
+            return jsonify({'error': 'No items with transfer data found'})
+        
+        # Calculate total transfers for percentage calculation
+        total_transfers = float(item_transfers['RETAIL TRANSFERS'].sum())
+        
+        # Calculate percentages and logistics categories
+        top_items['PERCENTAGE'] = (top_items['RETAIL TRANSFERS'] / total_transfers * 100)
+        top_items = top_items.reset_index(drop=True)
+        top_items['RANK'] = range(1, len(top_items) + 1)
+        
+        # Categorize items by logistics importance
+        def get_logistics_category(rank):
+            if rank <= 3:
+                return 'Critical Logistics'
+            elif rank <= 7:
+                return 'High Priority'
+            elif rank <= 12:
+                return 'Regular Transfer'
+            else:
+                return 'Low Priority'
+        
+        def get_logistics_color(rank):
+            if rank <= 3:
+                return '#F44336'  # Red for critical
+            elif rank <= 7:
+                return '#FF9800'  # Orange for high priority
+            elif rank <= 12:
+                return '#FFC107'  # Amber for regular
+            else:
+                return '#4CAF50'  # Green for low priority
+        
+        top_items['CATEGORY'] = top_items['RANK'].apply(get_logistics_category)
+        top_items['COLOR'] = top_items['RANK'].apply(get_logistics_color)
+        
+        # Create display labels combining item code and description (truncated)
+        top_items['DISPLAY_LABEL'] = top_items.apply(
+            lambda row: f"{row['ITEM CODE']} - {str(row['ITEM DESCRIPTION'])[:25]}..." 
+            if len(str(row['ITEM DESCRIPTION'])) > 25 
+            else f"{row['ITEM CODE']} - {str(row['ITEM DESCRIPTION'])}", 
+            axis=1
+        )
+        
+        # Calculate logistics insights
+        top_5_transfers = float(top_items.head(5)['RETAIL TRANSFERS'].sum())
+        top_5_percentage = (top_5_transfers / total_transfers * 100) if total_transfers > 0 else 0
+        
+        # Calculate average transfer volume for bottleneck analysis
+        avg_transfer_volume = float(top_items['RETAIL TRANSFERS'].mean())
+        
+        # Identify potential bottlenecks (items with transfers significantly above average)
+        bottleneck_threshold = avg_transfer_volume * 1.5
+        bottlenecks = top_items[top_items['RETAIL TRANSFERS'] >= bottleneck_threshold]
+        
+        # Get item type analysis for transfer patterns
+        item_type_transfers = df.groupby('ITEM TYPE')['RETAIL TRANSFERS'].sum().reset_index()
+        item_type_transfers = item_type_transfers.sort_values('RETAIL TRANSFERS', ascending=False)
+        
+        top_items_data = {
+            'items': [
+                {
+                    'item_code': str(row['ITEM CODE']),
+                    'display_label': str(row['DISPLAY_LABEL']),
+                    'item_description': str(row['ITEM DESCRIPTION']),
+                    'retail_transfers': float(row['RETAIL TRANSFERS']),
+                    'percentage': float(row['PERCENTAGE']),
+                    'rank': int(row['RANK']),
+                    'category': str(row['CATEGORY']),
+                    'color': str(row['COLOR'])
+                }
+                for _, row in top_items.iterrows()
+            ],
+            'total_transfers': total_transfers,
+            'total_items_with_transfers': len(item_transfers),
+            'logistics_analytics': {
+                'top_5_concentration': float(top_5_percentage),
+                'average_transfer_volume': avg_transfer_volume,
+                'bottleneck_count': len(bottlenecks),
+                'bottleneck_threshold': float(bottleneck_threshold),
+                'critical_items': len(top_items[top_items['CATEGORY'] == 'Critical Logistics']),
+                'high_priority_items': len(top_items[top_items['CATEGORY'] == 'High Priority'])
+            },
+            'top_transfer_item': {
+                'item_code': str(top_items.iloc[0]['ITEM CODE']),
+                'description': str(top_items.iloc[0]['ITEM DESCRIPTION']),
+                'transfers': float(top_items.iloc[0]['RETAIL TRANSFERS']),
+                'percentage': float(top_items.iloc[0]['PERCENTAGE'])
+            },
+            'bottlenecks': [
+                {
+                    'item_code': str(row['ITEM CODE']),
+                    'transfers': float(row['RETAIL TRANSFERS']),
+                    'category': str(row['CATEGORY'])
+                }
+                for _, row in bottlenecks.iterrows()
+            ],
+            'item_type_analysis': {
+                'categories': [str(x) for x in item_type_transfers.head(5)['ITEM TYPE'].tolist()],
+                'transfers': [float(x) for x in item_type_transfers.head(5)['RETAIL TRANSFERS'].tolist()]
+            }
+        }
+        
+        return jsonify(top_items_data)
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        return jsonify({'error': f'Error processing top items by transfers data: {str(e)}', 'details': error_details})
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=False, host='127.0.0.1', port=5000)
