@@ -796,3 +796,82 @@ fetch('http://127.0.0.1:5000/api/inventory_turnover_rate')
     .catch(error => {
         console.error('Error fetching inventory turnover data:', error);
     });
+
+// Fetch and display Sales per Supplier
+fetch('http://127.0.0.1:5000/api/sales_per_supplier')
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            console.error('Error:', data.error);
+            return;
+        }
+
+        // Create treemap chart for sales per supplier
+        const treemapTrace = {
+            type: "treemap",
+            labels: data.suppliers.map(s => s.display_name),
+            parents: data.suppliers.map(() => ''),
+            values: data.suppliers.map(s => s.sales),
+            text: data.suppliers.map(s => 
+                `<b>${s.supplier}</b><br>Sales: ${formatCurrency(s.sales)}<br>Share: ${s.percentage.toFixed(1)}%<br>Rank: #${s.rank}<br>Category: ${s.category}`
+            ),
+            textinfo: "label+value+percent parent",
+            textfont: {
+                size: 12,
+                color: "white"
+            },
+            marker: {
+                colors: data.suppliers.map(s => s.color),
+                line: {
+                    color: 'white',
+                    width: 2
+                },
+                colorscale: [
+                    [0, '#9E9E9E'],
+                    [0.2, '#FF9800'],
+                    [0.4, '#4CAF50'],
+                    [0.6, '#2196F3'],
+                    [1, '#1976D2']
+                ]
+            },
+            hovertemplate: '%{text}<extra></extra>',
+            maxdepth: 2,
+            pathbar: {
+                visible: false
+            }
+        };
+
+        const layout = {
+            title: {
+                text: `Top Supplier: ${data.best_supplier.name} (${data.best_supplier.percentage.toFixed(1)}%) | Top 5 Control: ${data.top_5_metrics.percentage.toFixed(1)}%`,
+                font: { size: 14, color: '#333' },
+                y: 0.95
+            },
+            margin: { t: 50, r: 10, b: 60, l: 10 },
+            paper_bgcolor: "rgba(0,0,0,0)",
+            plot_bgcolor: "rgba(0,0,0,0)",
+            font: { 
+                color: "#333", 
+                family: "Arial, sans-serif",
+                size: 10
+            },
+            annotations: [
+                {
+                    x: 0.5,
+                    y: 0.02,
+                    text: `<b>Partnership Analysis:</b> ${data.diversity_metrics.major_partners} Major Partners | ${data.diversity_metrics.key_partners} Key Partners | ${data.total_suppliers} Total Suppliers`,
+                    showarrow: false,
+                    font: { size: 11, color: "#333" },
+                    xanchor: 'center',
+                    bgcolor: 'rgba(255,255,255,0.9)',
+                    bordercolor: '#2196F3',
+                    borderwidth: 1
+                }
+            ]
+        };
+
+        Plotly.newPlot('sales-supplier-container', [treemapTrace], layout, {responsive: true});
+    })
+    .catch(error => {
+        console.error('Error fetching sales per supplier data:', error);
+    });

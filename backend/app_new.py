@@ -450,5 +450,113 @@ def get_inventory_turnover_rate():
         error_details = traceback.format_exc()
         return jsonify({'error': f'Error processing inventory turnover data: {str(e)}', 'details': error_details})
 
+@app.route('/api/sales_per_supplier', methods=['GET'])
+def get_sales_per_supplier():
+    try:
+        df = pd.read_csv('../Sales data', sep='\t')
+        
+        # Group by supplier and sum retail sales
+        supplier_sales = df.groupby('SUPPLIER')['RETAIL SALES'].sum().reset_index()
+        
+        # Sort by sales in descending order
+        supplier_sales = supplier_sales.sort_values('RETAIL SALES', ascending=False)
+        
+        # Filter out suppliers with zero sales
+        supplier_sales = supplier_sales[supplier_sales['RETAIL SALES'] > 0]
+        
+        if len(supplier_sales) == 0:
+            return jsonify({'error': 'No suppliers with sales data found'})
+        
+        # Calculate total sales for percentage calculation
+        total_sales = float(supplier_sales['RETAIL SALES'].sum())
+        
+        # Calculate percentages and performance metrics
+        supplier_sales['PERCENTAGE'] = (supplier_sales['RETAIL SALES'] / total_sales * 100)
+        supplier_sales['RANK'] = range(1, len(supplier_sales) + 1)
+        
+        # Categorize suppliers by performance
+        def get_supplier_category(percentage):
+            if percentage >= 20:
+                return 'Major Partner'
+            elif percentage >= 10:
+                return 'Key Partner'
+            elif percentage >= 5:
+                return 'Important Partner'
+            elif percentage >= 1:
+                return 'Regular Partner'
+            else:
+                return 'Minor Partner'
+        
+        def get_supplier_color(percentage):
+            if percentage >= 20:
+                return '#1976D2'  # Dark Blue
+            elif percentage >= 10:
+                return '#2196F3'  # Blue
+            elif percentage >= 5:
+                return '#4CAF50'  # Green
+            elif percentage >= 1:
+                return '#FF9800'  # Orange
+            else:
+                return '#9E9E9E'  # Grey
+        
+        supplier_sales['CATEGORY'] = supplier_sales['PERCENTAGE'].apply(get_supplier_category)
+        supplier_sales['COLOR'] = supplier_sales['PERCENTAGE'].apply(get_supplier_color)
+        
+        # Get top suppliers for insights
+        top_5_suppliers = supplier_sales.head(5)
+        top_5_contribution = float(top_5_suppliers['RETAIL SALES'].sum())
+        top_5_percentage = (top_5_contribution / total_sales * 100) if total_sales > 0 else 0
+        
+        # Calculate supplier diversity metrics
+        major_partners = len(supplier_sales[supplier_sales['PERCENTAGE'] >= 20])
+        key_partners = len(supplier_sales[supplier_sales['PERCENTAGE'] >= 10])
+        total_suppliers = len(supplier_sales)
+        
+        # Create labels for treemap (truncate long supplier names)
+        supplier_sales['DISPLAY_NAME'] = supplier_sales['SUPPLIER'].apply(
+            lambda x: str(x)[:20] + '...' if len(str(x)) > 20 else str(x)
+        )
+        
+        # Prepare treemap data
+        treemap_data = []
+        for _, row in supplier_sales.iterrows():
+            treemap_data.append({
+                'supplier': str(row['SUPPLIER']),
+                'display_name': str(row['DISPLAY_NAME']),
+                'sales': float(row['RETAIL SALES']),
+                'percentage': float(row['PERCENTAGE']),
+                'rank': int(row['RANK']),
+                'category': str(row['CATEGORY']),
+                'color': str(row['COLOR'])
+            })
+        
+        sales_per_supplier_data = {
+            'suppliers': treemap_data,
+            'total_sales': total_sales,
+            'total_suppliers': total_suppliers,
+            'top_5_metrics': {
+                'contribution': top_5_contribution,
+                'percentage': float(top_5_percentage),
+                'suppliers': [str(x) for x in top_5_suppliers['SUPPLIER'].tolist()]
+            },
+            'diversity_metrics': {
+                'major_partners': major_partners,
+                'key_partners': key_partners,
+                'total_suppliers': total_suppliers,
+                'supplier_concentration': float(top_5_percentage)
+            },
+            'best_supplier': {
+                'name': str(supplier_sales.iloc[0]['SUPPLIER']),
+                'sales': float(supplier_sales.iloc[0]['RETAIL SALES']),
+                'percentage': float(supplier_sales.iloc[0]['PERCENTAGE'])
+            }
+        }
+        
+        return jsonify(sales_per_supplier_data)
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        return jsonify({'error': f'Error processing sales per supplier data: {str(e)}', 'details': error_details})
+
 if __name__ == '__main__':
     app.run(debug=True)
