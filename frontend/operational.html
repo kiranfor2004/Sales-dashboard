@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Operational Dashboard - Sales Analytics</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        .nav-container {
+            background: linear-gradient(135deg, #2c3e50, #3498db);
+            padding: 1rem;
+            margin-bottom: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .nav-tabs {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+        
+        .nav-tab {
+            padding: 0.75rem 1.5rem;
+            background: rgba(255,255,255,0.1);
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        
+        .nav-tab:hover {
+            background: rgba(255,255,255,0.2);
+            transform: translateY(-2px);
+        }
+        
+        .nav-tab.active {
+            background: #e74c3c;
+            box-shadow: 0 2px 10px rgba(231,76,60,0.3);
+        }
+        
+        .dashboard-title {
+            color: white;
+            margin: 0;
+            font-size: 1.8rem;
+            font-weight: 600;
+        }
+        
+        .dashboard-subtitle {
+            color: rgba(255,255,255,0.8);
+            margin: 0.5rem 0 0 0;
+            font-size: 1rem;
+        }
+        
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Navigation -->
+        <div class="nav-container">
+            <div class="nav-tabs">
+                <div>
+                    <h1 class="dashboard-title">Operational Dashboard</h1>
+                    <p class="dashboard-subtitle">Daily Operations & Performance Metrics</p>
+                </div>
+                <div style="margin-left: auto; display: flex; gap: 1rem;">
+                    <a href="operational.html" class="nav-tab active">Operational</a>
+                    <a href="strategic.html" class="nav-tab">Strategic Analytics</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- KPI Grid -->
+        <div class="kpi-grid">
+            <!-- Overall Sales Performance -->
+            <div class="kpi-card">
+                <h2 class="kpi-title">Overall Sales Performance</h2>
+                <p class="kpi-subtitle">Current vs Previous Month Comparison</p>
+                <div id="overallSalesPerformance" class="chart-container"></div>
+            </div>
+
+            <!-- Month-over-Month Sales Growth -->
+            <div class="kpi-card">
+                <h2 class="kpi-title">Month-over-Month Sales Growth</h2>
+                <p class="kpi-subtitle">Trend KPI - Growth Tracking</p>
+                <div id="monthOverMonthGrowth" class="chart-container"></div>
+            </div>
+
+            <!-- Sales Transfer Ratio -->
+            <div class="kpi-card">
+                <h2 class="kpi-title">Sales Transfer Ratio</h2>
+                <p class="kpi-subtitle">Efficiency KPI - Operational Performance</p>
+                <div id="salesTransferRatio" class="chart-container"></div>
+            </div>
+
+            <!-- Inventory Turnover Rate -->
+            <div class="kpi-card">
+                <h2 class="kpi-title">Inventory Turnover Rate</h2>
+                <p class="kpi-subtitle">Efficiency KPI - Inventory Management</p>
+                <div id="inventoryTurnover" class="chart-container"></div>
+            </div>
+
+            <!-- Top Items by Retail Transfers -->
+            <div class="kpi-card">
+                <h2 class="kpi-title">Top Items by Retail Transfers</h2>
+                <p class="kpi-subtitle">Logistics KPI - Transfer Performance</p>
+                <div id="topItemsByRetailTransfers" class="chart-container"></div>
+            </div>
+
+            <!-- Top 10 Selling Items -->
+            <div class="kpi-card">
+                <h2 class="kpi-title">Top 10 Selling Items</h2>
+                <p class="kpi-subtitle">Performance KPI - Best Products</p>
+                <div id="topSellingItems" class="chart-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="operational.js"></script>
+</body>
+</html>
