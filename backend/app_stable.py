@@ -12,9 +12,11 @@ print("Loading filtered sales data (2024-2025 only)...")
 try:
     # Try different paths for local vs Azure deployment
     data_paths = [
-        '../Sales data - Filtered',  # Local development
-        'Sales data - Filtered',     # Azure deployment
-        './Sales data - Filtered'    # Alternative path
+        '../Sales data - Filtered',        # Local development
+        'Sales data - Filtered',           # Azure deployment - root level
+        './Sales data - Filtered',         # Alternative path
+        '/home/site/wwwroot/Sales data - Filtered',  # Azure absolute path
+        os.path.join(os.path.dirname(os.path.dirname(__file__)), 'Sales data - Filtered')  # Relative to project root
     ]
     
     df = None
