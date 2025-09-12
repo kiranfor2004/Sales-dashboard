@@ -40,10 +40,9 @@ function createSalesPerSupplier(data, chartId) {
     const salesValues = data.total_sales.slice(0, 10); // Top 10 sales values
     
     const trace = {
-        x: salesValues,
-        y: suppliers,
+        x: suppliers,
+        y: salesValues,
         type: 'bar',
-        orientation: 'h',
         marker: { 
             color: '#2c3e50',
             line: {
@@ -51,24 +50,26 @@ function createSalesPerSupplier(data, chartId) {
                 width: 1
             }
         },
-        name: 'Sales Value'
+        name: 'Sales Value',
+        text: salesValues.map(val => `$${val.toLocaleString()}`),
+        textposition: 'outside'
     };
 
     const layout = {
         ...chartConfig.layout,
         title: { text: 'Top 10 Supplier Performance', font: { size: 16, color: '#2c3e50' } },
         xaxis: { 
+            title: 'Suppliers', 
+            gridcolor: '#ecf0f1',
+            tickangle: -45
+        },
+        yaxis: { 
             title: 'Sales Value ($)', 
             gridcolor: '#ecf0f1',
             tickformat: '$,.0f'
         },
-        yaxis: { 
-            title: 'Suppliers', 
-            gridcolor: '#ecf0f1',
-            automargin: true
-        },
-        height: 600,
-        margin: { l: 150, r: 50, t: 50, b: 80 }
+        height: 500,
+        margin: { l: 80, r: 50, t: 50, b: 120 }
     };
 
     Plotly.newPlot(chartId, [trace], layout, chartConfig);

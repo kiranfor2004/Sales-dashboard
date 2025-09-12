@@ -144,24 +144,39 @@ function createInventoryTurnover(data, chartId) {
 
 // 5. Top Items by Retail Transfers Chart
 function createTopItemsByRetailTransfers(data, chartId) {
+    // Limit to top 10 for better readability
+    const topItems = 10;
+    const labels = data.display_labels.slice(0, topItems) || [];
+    const transferValues = data.retail_transfers.slice(0, topItems) || [];
+    
     const trace = {
-        x: data.retail_transfers || [],
-        y: data.display_labels || [],
+        x: labels,
+        y: transferValues,
         type: 'bar',
-        orientation: 'h',
         marker: { 
             color: '#9b59b6',
             colorscale: 'Viridis'
         },
-        name: 'Transfer Value'
+        name: 'Transfer Value',
+        text: transferValues.map(val => `$${val.toLocaleString()}`),
+        textposition: 'outside'
     };
 
     const layout = {
         ...chartConfig.layout,
-        title: { text: 'Top Performing Items', font: { size: 16, color: '#2c3e50' } },
-        xaxis: { title: 'Transfer Value ($)', gridcolor: '#ecf0f1' },
-        yaxis: { title: 'Items', gridcolor: '#ecf0f1' },
-        height: 500
+        title: { text: 'Top 10 Items by Retail Transfers', font: { size: 16, color: '#2c3e50' } },
+        xaxis: { 
+            title: 'Items', 
+            gridcolor: '#ecf0f1',
+            tickangle: -45
+        },
+        yaxis: { 
+            title: 'Transfer Value ($)', 
+            gridcolor: '#ecf0f1',
+            tickformat: '$,.0f'
+        },
+        height: 500,
+        margin: { l: 80, r: 50, t: 50, b: 120 }
     };
 
     Plotly.newPlot(chartId, [trace], layout, chartConfig);
@@ -174,10 +189,9 @@ function createTopSellingItems(data, chartId) {
     const salesValues = data.retail_sales.slice(0, 10);
     
     const trace = {
-        x: salesValues,
-        y: labels,
+        x: labels,
+        y: salesValues,
         type: 'bar',
-        orientation: 'h',
         marker: { 
             color: '#16a085',
             line: {
@@ -194,17 +208,17 @@ function createTopSellingItems(data, chartId) {
         ...chartConfig.layout,
         title: { text: 'Top 10 Best Performing Products', font: { size: 16, color: '#2c3e50' } },
         xaxis: { 
+            title: 'Products', 
+            gridcolor: '#ecf0f1',
+            tickangle: -45
+        },
+        yaxis: { 
             title: 'Sales Value ($)', 
             gridcolor: '#ecf0f1',
             tickformat: '$,.0f'
         },
-        yaxis: { 
-            title: 'Products', 
-            gridcolor: '#ecf0f1',
-            automargin: true
-        },
-        height: 600,
-        margin: { l: 200, r: 50, t: 50, b: 80 }
+        height: 500,
+        margin: { l: 80, r: 50, t: 50, b: 120 }
     };
 
     Plotly.newPlot(chartId, [trace], layout, chartConfig);

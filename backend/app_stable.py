@@ -1,6 +1,8 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 import pandas as pd
+from datetime import datetime
+import os
 
 app = Flask(__name__)
 CORS(app)
@@ -8,12 +10,57 @@ CORS(app)
 # Load data once at startup to improve performance
 print("Loading filtered sales data (2024-2025 only)...")
 try:
-    df = pd.read_csv('../Sales data - Filtered', sep='\t')
-    print(f"Filtered data loaded successfully! Shape: {df.shape}")
-    print(f"Years included: {sorted(df['YEAR'].unique())}")
+    # Try different paths for local vs Azure deployment
+    data_paths = [
+        '../Sales data - Filtered',  # Local development
+        'Sales data - Filtered',     # Azure deployment
+        './Sales data - Filtered'    # Alternative path
+    ]
+    
+    df = None
+    for path in data_paths:
+        try:
+            df = pd.read_csv(path, sep='\t')
+            print(f"Data loaded from: {path}")
+            break
+        except FileNotFoundError:
+            continue
+    
+    if df is not None:
+        print(f"Filtered data loaded successfully! Shape: {df.shape}")
+        print(f"Years included: {sorted(df['YEAR'].unique())}")
+    else:
+        raise FileNotFoundError("Could not find data file in any expected location")
+        
 except Exception as e:
     print(f"Error loading filtered data: {e}")
     df = pd.DataFrame()  # Empty dataframe as fallback
+
+# Utility functions for period filtering
+def filter_data_by_period(data, period='MTD'):
+    """Filter data based on period: MTD (Month-to-Date) or YTD (Year-to-Date)"""
+    if len(data) == 0:
+        return data
+    
+    current_date = datetime.now()
+    current_year = current_date.year
+    current_month = current_date.month
+    
+    if period == 'MTD':
+        # Month-to-Date: Current year and current month
+        filtered_data = data[(data['YEAR'] == current_year) & (data['MONTH'] == current_month)]
+    elif period == 'YTD':
+        # Year-to-Date: Current year, all months up to current month
+        filtered_data = data[(data['YEAR'] == current_year) & (data['MONTH'] <= current_month)]
+    else:
+        # Default: return all data
+        filtered_data = data
+    
+    return filtered_data
+
+def get_period_from_request():
+    """Get period parameter from request, default to all data if not specified"""
+    return request.args.get('period', 'ALL')
 
 @app.route('/api/test', methods=['GET'])
 def test():
@@ -24,9 +71,19 @@ def get_kpi_data():
     try:
         if len(df) == 0:
             return jsonify({'error': 'No data available'})
+        
+        period = get_period_from_request()
+        
+        # Apply period filtering
+        if period in ['MTD', 'YTD']:
+            filtered_df = filter_data_by_period(df, period)
+            if len(filtered_df) == 0:
+                return jsonify({'error': f'No data available for {period} period'})
+        else:
+            filtered_df = df
             
-        latest_year = df['YEAR'].max()
-        latest_month = df[df['YEAR'] == latest_year]['MONTH'].max()
+        latest_year = filtered_df['YEAR'].max()
+        latest_month = filtered_df[filtered_df['YEAR'] == latest_year]['MONTH'].max()
 
         if latest_month == 1:
             previous_month = 12
@@ -35,8 +92,8 @@ def get_kpi_data():
             previous_month = latest_month - 1
             previous_year = latest_year
 
-        current_month_data = df[(df['YEAR'] == latest_year) & (df['MONTH'] == latest_month)]
-        previous_month_data = df[(df['YEAR'] == previous_year) & (df['MONTH'] == previous_month)]
+        current_month_data = filtered_df[(filtered_df['YEAR'] == latest_year) & (filtered_df['MONTH'] == latest_month)]
+        previous_month_data = filtered_df[(filtered_df['YEAR'] == previous_year) & (filtered_df['MONTH'] == previous_month)]
 
         current_retail_sales = float(current_month_data['RETAIL SALES'].sum())
         current_warehouse_sales = float(current_month_data['WAREHOUSE SALES'].sum())
@@ -81,13 +138,11 @@ def get_overall_sales_performance():
             'percentages': [retail_percentage, transfers_percentage, warehouse_percentage],
             'grand_total': grand_total,
             'summary': {
-                'total_retail_sales': total_retail_sales,
-                'total_retail_transfers': total_retail_transfers,
-                'total_warehouse_sales': total_warehouse_sales,
-                'grand_total': grand_total
+                'retail': retail_percentage,
+                'transfers': transfers_percentage,
+                'warehouse': warehouse_percentage
             }
         }
-        
         return jsonify(overall_performance_data)
     except Exception as e:
         return jsonify({'error': str(e)})
@@ -99,15 +154,17 @@ def get_sales_mix():
             return jsonify({'error': 'No data available'})
         
         sales_by_item = df.groupby('ITEM TYPE')['RETAIL SALES'].sum().reset_index()
-        total_retail_sales = float(sales_by_item['RETAIL SALES'].sum())
+        total_retail_sales = float(df['RETAIL SALES'].sum())
         
+        if total_retail_sales == 0:
+            return jsonify({'error': 'No retail sales data available'})
+            
         sales_by_item['PERCENTAGE'] = (sales_by_item['RETAIL SALES'] / total_retail_sales * 100)
         sales_by_item = sales_by_item.sort_values('RETAIL SALES', ascending=False)
         
+        # Create category classifications
         sales_by_item['CATEGORY'] = sales_by_item['PERCENTAGE'].apply(
-            lambda x: 'Major Contributor' if x >= 10 else 
-                     'Moderate Contributor' if x >= 5 else 
-                     'Minor Contributor'
+            lambda x: 'Major Contributor' if x >= 30 else 'Moderate Contributor' if x >= 10 else 'Minor Contributor'
         )
         
         sales_mix_data = {
@@ -121,6 +178,37 @@ def get_sales_mix():
         }
         
         return jsonify(sales_mix_data)
+    except Exception as e:
+        return jsonify({'error': str(e)})
+
+@app.route('/api/sales_by_area', methods=['GET'])
+def get_sales_by_area():
+    try:
+        period = request.args.get('period', 'all')
+        filtered_df = filter_data_by_period(df, period)
+        
+        if len(filtered_df) == 0:
+            return jsonify({'error': 'No data available for the selected period'})
+        
+        area_sales = filtered_df.groupby('AREA')['RETAIL SALES'].sum().reset_index()
+        area_sales = area_sales.sort_values('RETAIL SALES', ascending=False)
+        
+        if len(area_sales) == 0:
+            return jsonify({'error': 'No area sales data available'})
+        
+        total_retail_sales = float(area_sales['RETAIL SALES'].sum())
+        area_sales['PERCENTAGE'] = (area_sales['RETAIL SALES'] / total_retail_sales * 100) if total_retail_sales > 0 else 0
+        
+        sales_by_area_data = {
+            'areas': [str(x) for x in area_sales['AREA'].tolist()],
+            'retail_sales': [float(x) for x in area_sales['RETAIL SALES'].tolist()],
+            'percentages': [float(x) for x in area_sales['PERCENTAGE'].tolist()],
+            'total_retail_sales': total_retail_sales,
+            'top_area': str(area_sales.iloc[0]['AREA']) if len(area_sales) > 0 else 'N/A',
+            'top_area_percentage': float(area_sales.iloc[0]['PERCENTAGE']) if len(area_sales) > 0 else 0
+        }
+        
+        return jsonify(sales_by_area_data)
     except Exception as e:
         return jsonify({'error': str(e)})
 
@@ -279,8 +367,18 @@ def get_month_over_month_growth():
         if len(df) == 0:
             return jsonify({'error': 'No data available'})
         
+        period = get_period_from_request()
+        
+        # Apply period filtering
+        if period in ['MTD', 'YTD']:
+            filtered_df = filter_data_by_period(df, period)
+            if len(filtered_df) == 0:
+                return jsonify({'error': f'No data available for {period} period'})
+        else:
+            filtered_df = df
+        
         # Calculate total sales by month
-        monthly_sales = df.groupby(['YEAR', 'MONTH']).agg({
+        monthly_sales = filtered_df.groupby(['YEAR', 'MONTH']).agg({
             'RETAIL SALES': 'sum',
             'RETAIL TRANSFERS': 'sum',
             'WAREHOUSE SALES': 'sum'
@@ -449,8 +547,18 @@ def get_sales_per_supplier():
         if len(df) == 0:
             return jsonify({'error': 'No data available'})
         
+        period = get_period_from_request()
+        
+        # Apply period filtering
+        if period in ['MTD', 'YTD']:
+            filtered_df = filter_data_by_period(df, period)
+            if len(filtered_df) == 0:
+                return jsonify({'error': f'No data available for {period} period'})
+        else:
+            filtered_df = df
+        
         # Calculate sales by supplier
-        supplier_sales = df.groupby('SUPPLIER').agg({
+        supplier_sales = filtered_df.groupby('SUPPLIER').agg({
             'RETAIL SALES': 'sum',
             'RETAIL TRANSFERS': 'sum',
             'WAREHOUSE SALES': 'sum'
@@ -733,4 +841,6 @@ def get_sales_seasonality():
         return jsonify(fallback_data)
 
 if __name__ == '__main__':
-    app.run(debug=False, host='127.0.0.1', port=5000)
+    # Get port from environment variable for Azure deployment
+    port = int(os.environ.get('PORT', 5000))
+    app.run(debug=False, host='0.0.0.0', port=port)
