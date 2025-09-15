@@ -543,17 +543,53 @@ def get_overall_sales_performance():
 
 @app.route('/operational')
 def operational():
-    return render_template_string(DASHBOARD_TEMPLATE,
-        title="Operational View",
-        subtitle="Daily Operations & Performance Metrics", 
-        gradient="linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-        accent_color="#667eea",
-        data_loaded=data_loaded,
-        record_count=len(df) if data_loaded and df is not None else 0,
-        file_path=data_info.get('file_path', '') if data_loaded else '',
-        memory_usage=data_info.get('memory_usage_mb', '') if data_loaded else '',
-        timestamp=datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    )
+    try:
+        return render_template_string(DASHBOARD_TEMPLATE,
+            title="Operational View",
+            subtitle="Daily Operations & Performance Metrics", 
+            gradient="linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+            accent_color="#667eea",
+            data_loaded=data_loaded,
+            record_count=len(df) if data_loaded and df is not None else 0,
+            file_path=data_info.get('file_path', '') if data_loaded else '',
+            memory_usage=data_info.get('memory_usage_mb', '') if data_loaded else '',
+            timestamp=datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        )
+    except Exception as e:
+        return f"""
+        <html>
+        <body>
+        <h1>Dashboard Error</h1>
+        <p>Error rendering dashboard: {str(e)}</p>
+        <p>Data loaded: {data_loaded}</p>
+        <p>Records: {len(df) if data_loaded and df is not None else 0}</p>
+        </body>
+        </html>
+        """
+
+@app.route('/dashboard-test')
+def dashboard_test():
+    return """
+    <html>
+    <head><title>Simple Dashboard Test</title></head>
+    <body style="font-family: Arial; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+        <h1>🎯 Sales Dashboard - Test View</h1>
+        <div style="background: white; color: black; padding: 20px; margin: 20px 0; border-radius: 10px;">
+            <h2>System Status</h2>
+            <p><strong>Status:</strong> ✅ Working</p>
+            <p><strong>Data Loaded:</strong> """ + str(data_loaded) + """</p>
+            <p><strong>Records:</strong> """ + str(len(df) if data_loaded and df is not None else 0) + """</p>
+            <p><strong>Timestamp:</strong> """ + datetime.now().strftime('%Y-%m-%d %H:%M:%S') + """</p>
+        </div>
+        <div style="background: white; color: black; padding: 20px; margin: 20px 0; border-radius: 10px;">
+            <h2>📊 Quick Links</h2>
+            <a href="/api/health" style="display: block; margin: 10px 0; color: #667eea;">Health Check</a>
+            <a href="/api/data-info" style="display: block; margin: 10px 0; color: #667eea;">Data Information</a>
+            <a href="/api/overall_sales_performance" style="display: block; margin: 10px 0; color: #667eea;">Sales Performance</a>
+        </div>
+    </body>
+    </html>
+    """
 
 @app.route('/strategic')
 def strategic():
