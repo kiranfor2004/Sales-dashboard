@@ -2,6 +2,7 @@
 # Production dependencies for Sales Dashboard
 # Single authoritative requirements file used by Azure.
 # To force a fresh install on Azure, modify this file and redeploy.
+# Updated: 2025-09-15 - Force Azure rebuild
 ###############################################
 
 Flask==3.0.1
