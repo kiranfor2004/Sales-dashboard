@@ -210,15 +210,28 @@ def after_request(response):
     
     return response
 
-# Load data on application startup
+# Load data on application startup (async to not block Azure startup)
 log_message("🚀 Starting Sales Dashboard application...")
-load_success = load_data()
 
-if load_success:
-    log_message("✅ Application ready with sales data!")
-else:
-    log_message("⚠️ Application started but no sales data loaded")
-    log_message("Application will run in demo mode")
+# Try to load data, but don't block startup if it takes too long
+import threading
+
+def load_data_async():
+    """Load data in background thread to not block app startup"""
+    global load_success
+    try:
+        load_success = load_data()
+        if load_success:
+            log_message("✅ Application ready with sales data!")
+        else:
+            log_message("⚠️ Application started but no sales data loaded")
+    except Exception as e:
+        log_message(f"❌ Error loading data: {e}")
+
+# Start data loading in background
+data_thread = threading.Thread(target=load_data_async, daemon=True)
+data_thread.start()
+log_message("📊 Data loading started in background...")
 
 # HTML Templates
 DASHBOARD_TEMPLATE = """
@@ -378,6 +391,16 @@ DASHBOARD_TEMPLATE = """
 ###############################
 # Application Routes
 ###############################
+@app.route('/robots.txt')
+def robots():
+    """Simple endpoint that responds immediately for Azure health checks"""
+    return "User-agent: *\nDisallow: /api/\n"
+
+@app.route('/ping')
+def ping():
+    """Immediate health check endpoint"""
+    return jsonify({"status": "alive", "timestamp": datetime.now().isoformat()})
+
 @app.route('/')
 def home():
     return jsonify({
