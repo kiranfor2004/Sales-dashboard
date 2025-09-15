@@ -403,24 +403,168 @@ def ping():
 
 @app.route('/')
 def home():
-    return jsonify({
-        "message": "Sales Dashboard API v2.0",
-        "status": "running",
-        "data_loaded": data_loaded,
-        "timestamp": datetime.now().isoformat(),
-        "endpoints": {
-            "health": "/api/health",
-            "data_info": "/api/data-info", 
-            "sales_performance": "/api/overall_sales_performance",
-            "operational_dashboard": "/operational",
-            "strategic_dashboard": "/strategic"
-        },
-        "app_info": {
-            "python_version": sys.version,
-            "flask_app": "deploy_ready_app.py",
-            "environment": "Azure App Service"
-        }
-    })
+    return """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Sales Dashboard - Home</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { 
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .container { 
+                max-width: 1000px; 
+                margin: 0 auto; 
+                padding: 40px; 
+                text-align: center;
+                color: white;
+            }
+            .header { 
+                margin-bottom: 50px;
+            }
+            .header h1 { 
+                font-size: 3.5em; 
+                margin-bottom: 15px;
+                font-weight: 300;
+                text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            }
+            .header p { 
+                font-size: 1.4em; 
+                opacity: 0.9;
+                margin-bottom: 10px;
+            }
+            .status-info {
+                font-size: 1.1em;
+                opacity: 0.8;
+                margin-bottom: 40px;
+            }
+            .dashboard-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                gap: 30px;
+                margin: 40px 0;
+            }
+            .dashboard-card {
+                background: rgba(255, 255, 255, 0.95);
+                color: #2c3e50;
+                padding: 40px;
+                border-radius: 20px;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+                transition: transform 0.3s ease, box-shadow 0.3s ease;
+                text-decoration: none;
+                display: block;
+            }
+            .dashboard-card:hover {
+                transform: translateY(-10px);
+                box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+                text-decoration: none;
+                color: #2c3e50;
+            }
+            .dashboard-card h3 {
+                font-size: 1.8em;
+                margin-bottom: 15px;
+                color: #667eea;
+            }
+            .dashboard-card p {
+                font-size: 1.1em;
+                line-height: 1.6;
+                margin-bottom: 20px;
+            }
+            .dashboard-card .icon {
+                font-size: 3em;
+                margin-bottom: 20px;
+            }
+            .api-section {
+                background: rgba(255, 255, 255, 0.1);
+                padding: 30px;
+                border-radius: 15px;
+                margin-top: 40px;
+            }
+            .api-section h3 {
+                margin-bottom: 20px;
+                font-size: 1.5em;
+            }
+            .api-links {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 15px;
+                justify-content: center;
+            }
+            .api-link {
+                background: rgba(255, 255, 255, 0.2);
+                color: white;
+                padding: 10px 20px;
+                border-radius: 25px;
+                text-decoration: none;
+                transition: background 0.3s ease;
+                font-size: 0.9em;
+            }
+            .api-link:hover {
+                background: rgba(255, 255, 255, 0.3);
+                color: white;
+                text-decoration: none;
+            }
+            .footer {
+                margin-top: 50px;
+                font-size: 0.9em;
+                opacity: 0.7;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>📊 Sales Dashboard</h1>
+                <p>Advanced Analytics & Business Intelligence Platform</p>
+                <div class="status-info">
+                    ✅ System Status: <strong>Online</strong> | 
+                    📈 Data Records: <strong>""" + str(len(df) if data_loaded and df is not None else 0) + """</strong> | 
+                    🕒 Last Updated: <strong>""" + datetime.now().strftime('%Y-%m-%d %H:%M') + """</strong>
+                </div>
+            </div>
+            
+            <div class="dashboard-grid">
+                <a href="/operational" class="dashboard-card">
+                    <div class="icon">⚡</div>
+                    <h3>Operational Dashboard</h3>
+                    <p>Real-time operational metrics, daily performance indicators, and live business monitoring for immediate insights.</p>
+                    <strong>→ View Operational Analytics</strong>
+                </a>
+                
+                <a href="/strategic" class="dashboard-card">
+                    <div class="icon">🎯</div>
+                    <h3>Strategic Dashboard</h3>
+                    <p>Long-term trends, strategic planning insights, partnership analysis, and executive-level business intelligence.</p>
+                    <strong>→ View Strategic Analytics</strong>
+                </a>
+            </div>
+            
+            <div class="api-section">
+                <h3>🔗 API Endpoints</h3>
+                <div class="api-links">
+                    <a href="/api/health" class="api-link">Health Check</a>
+                    <a href="/api/data-info" class="api-link">Data Information</a>
+                    <a href="/api/overall_sales_performance" class="api-link">Sales Performance</a>
+                    <a href="/dashboard-test" class="api-link">Test Dashboard</a>
+                </div>
+            </div>
+            
+            <div class="footer">
+                <p>Sales Dashboard v2.0 | Deployed on Azure App Service | Python 3.11</p>
+                <p>© 2025 Advanced Business Intelligence Platform</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
 
 @app.route('/api/health')
 def health():
