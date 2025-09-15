@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>System Status - Sales Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="stylesheet" href="style.css" />
+<style>
+ body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; background:#f5f7fa; margin:0; }
+ .wrapper { max-width:1000px; margin:0 auto; padding:2rem; }
+ h1 { text-align:center; margin-bottom:1rem; }
+ .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:1.2rem; }
+ .card { background:#fff; padding:1.2rem 1.4rem; border-radius:10px; box-shadow:0 4px 15px rgba(0,0,0,0.06); position:relative; }
+ .badge { display:inline-block; padding:0.35rem 0.7rem; border-radius:30px; font-size:0.75rem; letter-spacing:.5px; text-transform:uppercase; }
+ .badge.ok { background:#e6f9ed; color:#1e7e34; }
+ .badge.warn { background:#fff4e5; color:#ad5f00; }
+ .badge.err { background:#fdecea; color:#b71c1c; }
+ pre { background:#1e1e1e; color:#dcdcdc; padding:0.75rem; border-radius:6px; overflow:auto; font-size:0.75rem; }
+ .endpoint-list { list-style:none; margin:0; padding:0; }
+ .endpoint-list li { margin:0.35rem 0; }
+ .endpoint-list a { text-decoration:none; color:#0366d6; }
+ .endpoint-list a:hover { text-decoration:underline; }
+ .small { font-size:0.75rem; color:#666; }
+ .flex { display:flex; align-items:center; gap:.5rem; }
+ .footer { text-align:center; margin-top:2rem; font-size:.8rem; color:#666; }
+ .refresh-btn { background:#0366d6; color:#fff; border:none; padding:.6rem 1rem; border-radius:6px; cursor:pointer; }
+ .refresh-btn:disabled { background:#9dbce0; cursor:not-allowed; }
+</style>
+</head>
+<body>
+<div class="wrapper">
+  <h1>System Status</h1>
+  <p class="small">Live health & configuration snapshot of the Sales Dashboard backend.</p>
+  <div id="statusSection" class="grid"></div>
+  <h2 style="margin-top:2rem;">API Endpoints</h2>
+  <ul class="endpoint-list" id="endpointList"></ul>
+  <h2 style="margin-top:2rem;">Latest Health Payload</h2>
+  <pre id="rawHealth">Loading...</pre>
+  <div style="margin-top:1rem;" class="flex">
+    <button id="refreshDataBtn" class="refresh-btn">Force Data Reload</button>
+    <span id="refreshResult" class="small"></span>
+  </div>
+  <div class="footer">&copy; 2025 Sales Dashboard | Status Page</div>
+</div>
+<script>
+async function fetchJson(url, opts) {
+  const res = await fetch(url, opts);
+  return res.json();
+}
+function badge(status){
+  if(status==='healthy') return '<span class="badge ok">Healthy</span>'; 
+  if(status==='degraded') return '<span class="badge warn">Degraded</span>'; 
+  return '<span class="badge err">Error</span>';
+}
+function card(title, value){
+  return `<div class="card"><div class="small">${title}</div><div style="font-size:1.3rem;font-weight:600;">${value}</div></div>`;
+}
+async function load(){
+  try {
+    const health = await fetchJson('/api/health');
+    document.getElementById('rawHealth').textContent = JSON.stringify(health, null, 2);
+    const section = document.getElementById('statusSection');
+    section.innerHTML = [
+      card('Status', badge(health.status)),
+      card('Records', health.record_count||0),
+      card('Data Loaded', health.data_loaded? 'Yes':'No'),
+      card('Version', health.version||'n/a'),
+      card('Env', health.config?.env||'n/a'),
+      card('Log Level', health.config?.log_level||'n/a')
+    ].join('');
+    const endpoints = health?.endpoints || {
+      health:'/api/health', data_info:'/api/data-info', sales_performance:'/api/overall_sales_performance'
+    };
+    const list = document.getElementById('endpointList');
+    list.innerHTML = Object.entries(endpoints).map(([k,v])=>`<li><a href="${v}" target="_blank">${k}</a></li>`).join('');
+  } catch(e) {
+    document.getElementById('rawHealth').textContent = 'Error loading health: '+e;
+  }
+}
+load();
+setInterval(load, 60000);
+
+const btn = document.getElementById('refreshDataBtn');
+btn.addEventListener('click', async ()=>{
+  btn.disabled = true; btn.textContent='Refreshing...';
+  try {
+    const res = await fetchJson('/api/refresh-data', {method:'POST'});
+    document.getElementById('refreshResult').textContent = res.refreshed ? 'Reload success' : 'Reload failed';
+  } catch(e){
+    document.getElementById('refreshResult').textContent = 'Error: '+e;
+  } finally {
+    btn.disabled = false; btn.textContent='Force Data Reload';
+    load();
+  }
+});
+</script>
+</body>
+</html>

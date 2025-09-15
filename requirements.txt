@@ -1,6 +1,16 @@
-Flask==3.0.0
-pandas==2.1.4
+###############################################
+# Production dependencies for Sales Dashboard
+# Single authoritative requirements file used by Azure.
+# To force a fresh install on Azure, modify this file and redeploy.
+###############################################
+
+Flask==3.0.1
 Flask-Cors==4.0.0
-gunicorn==21.2.0
-numpy==1.24.3
+pandas==2.1.4
+numpy==1.25.2
 openpyxl==3.1.2
+gunicorn==21.2.0
+
+# Optional (date handling)
+python-dateutil==2.8.2
+pytz==2024.1

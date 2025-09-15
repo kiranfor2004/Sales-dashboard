@@ -1,4 +1,4 @@
-from flask import Flask, render_template_string, jsonify, request
+from flask import Flask, render_template_string, jsonify, request, g
 from flask_cors import CORS
 import pandas as pd
 import os
@@ -6,19 +6,40 @@ import json
 from datetime import datetime
 import traceback
 import sys
+import logging
+from config import CONFIG
+from functools import wraps
+import time
 
 app = Flask(__name__)
 CORS(app)
+
+logging.basicConfig(
+    level=getattr(logging, CONFIG.LOG_LEVEL, logging.INFO),
+    format='%(message)s'
+)
+logger = logging.getLogger("sales_dashboard")
 
 # Global variables to store data
 df = None
 data_loaded = False
 data_info = {}
 load_errors = []
+_cache = {}
+_cache_meta = {}
 
-def log_message(message):
-    """Print and store log messages"""
-    print(message)
+CACHE_TTL_SECONDS = 60  # simple in-memory cache duration for heavy endpoints
+
+def log_message(message, **extra):
+    """Structured log helper printing JSON lines suitable for Azure log stream."""
+    log_record = {"msg": message, "ts": datetime.utcnow().isoformat() + 'Z'}
+    if extra:
+        log_record.update(extra)
+    try:
+        logger.info(json.dumps(log_record))
+    except Exception:
+        # Fallback simple print if JSON fails
+        print(message)
     sys.stdout.flush()
 
 def load_data():
@@ -37,21 +58,13 @@ def load_data():
         log_message(f"Error listing current directory: {e}")
     
     # Multiple possible file paths for Azure deployment
-    possible_paths = [
-        'Sales data - Filtered',
-        './Sales data - Filtered', 
-        '/home/site/wwwroot/Sales data - Filtered',
-        '/home/site/wwwroot/backend/Sales data - Filtered',
-        'backend/Sales data - Filtered',
-        os.path.join(os.getcwd(), 'Sales data - Filtered'),
-        os.path.join(os.path.dirname(__file__), 'Sales data - Filtered'),
-        os.path.join(os.path.dirname(__file__), 'backend', 'Sales data - Filtered'),
-        # Try with different extensions
+    possible_paths = CONFIG.DATA_FILE_CANDIDATES + [
+        # Additional extension variants
         'Sales data - Filtered.csv',
         'Sales data - Filtered.xlsx',
         'Sales data - Filtered.tsv',
         './Sales data - Filtered.csv',
-        './Sales data - Filtered.xlsx', 
+        './Sales data - Filtered.xlsx',
         './Sales data - Filtered.tsv'
     ]
     
@@ -105,6 +118,9 @@ def load_data():
                 
                 data_loaded = True
                 log_message(f"✅ Data processing complete! Records: {len(df)}")
+                # Invalidate caches when new data loaded
+                _cache.clear()
+                _cache_meta.clear()
                 return True
                 
         except Exception as e:
@@ -119,6 +135,80 @@ def load_data():
         log_message(f"  - {path}")
     
     return False
+
+# -----------------------------
+# Caching Decorator
+# -----------------------------
+def cache_response(ttl: int = CACHE_TTL_SECONDS):
+    """Simple in-memory cache for JSON endpoints.
+
+    Key is path + sorted query args. Stores Flask response object.
+    """
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            if request.method != 'GET':
+                return func(*args, **kwargs)
+            key_parts = [request.path]
+            if request.args:
+                key_parts.append('&'.join(f"{k}={v}" for k, v in sorted(request.args.items())))
+            key = '?'.join(key_parts)
+            now = time.time()
+            meta = _cache_meta.get(key)
+            if meta and (now - meta['ts']) < meta['ttl']:
+                cached = _cache.get(key)
+                if cached is not None:
+                    g.cache_hit = True  # Signal cache hit for logging
+                    return cached
+            # execute
+            g.cache_hit = False  # Signal cache miss for logging
+            resp = func(*args, **kwargs)
+            _cache[key] = resp
+            _cache_meta[key] = {'ts': now, 'ttl': ttl}
+            return resp
+        return wrapper
+    return decorator
+
+# -----------------------------
+# Request Logging Middleware
+# -----------------------------
+@app.before_request
+def before_request():
+    """Start timing and initialize request context."""
+    g.start_time = time.time()
+    g.cache_hit = None  # Will be set by cache decorator if applicable
+
+@app.after_request
+def after_request(response):
+    """Log structured request details after response is ready."""
+    if hasattr(g, 'start_time'):
+        duration_ms = round((time.time() - g.start_time) * 1000, 2)
+        
+        # Only log API endpoints and key routes (avoid static assets)
+        if request.path.startswith('/api/') or request.path in ['/', '/operational', '/strategic']:
+            log_data = {
+                "event": "request",
+                "method": request.method,
+                "path": request.path,
+                "status_code": response.status_code,
+                "duration_ms": duration_ms,
+                "user_agent": request.headers.get('User-Agent', '')[:100] if request.headers.get('User-Agent') else None,
+                "remote_addr": request.environ.get('HTTP_X_FORWARDED_FOR', request.remote_addr)
+            }
+            
+            # Add cache information if available
+            if g.cache_hit is not None:
+                log_data["cache_hit"] = g.cache_hit
+                
+            # Add query parameters for API calls (excluding sensitive data)
+            if request.args and request.path.startswith('/api/'):
+                safe_args = {k: v for k, v in request.args.items() if k.lower() not in ['password', 'token', 'key']}
+                if safe_args:
+                    log_data["query_params"] = safe_args
+            
+            log_message("Request processed", **log_data)
+    
+    return response
 
 # Load data on application startup
 log_message("🚀 Starting Sales Dashboard application...")
@@ -285,7 +375,9 @@ DASHBOARD_TEMPLATE = """
 </html>
 """
 
+###############################
 # Application Routes
+###############################
 @app.route('/')
 def home():
     return jsonify({
@@ -309,14 +401,40 @@ def home():
 
 @app.route('/api/health')
 def health():
+    cache_stats = {
+        "entries": len(_cache),
+        "memory_keys": list(_cache.keys())[:5]  # Show first 5 cache keys
+    } if CONFIG.FEATURE_FLAGS.ENABLE_STATS else {}
+    
     return jsonify({
-        "status": "healthy",
+        "status": "healthy" if data_loaded else "degraded",
         "service": "Sales Dashboard API",
         "data_loaded": data_loaded,
         "record_count": len(df) if data_loaded and df is not None else 0,
         "timestamp": datetime.now().isoformat(),
         "uptime": "Running",
-        "version": "2.0"
+        "version": "2.1",
+        "config": {
+            "env": CONFIG.ENV,
+            "log_level": CONFIG.LOG_LEVEL,
+            "features": {
+                "refresh": CONFIG.FEATURE_FLAGS.ENABLE_REFRESH,
+                "stats": CONFIG.FEATURE_FLAGS.ENABLE_STATS
+            }
+        },
+        "cache_stats": cache_stats
+    })
+
+@app.route('/api/refresh-data', methods=['POST'])
+def refresh_data():
+    if not CONFIG.FEATURE_FLAGS.ENABLE_REFRESH:
+        return jsonify({"error": "Refresh disabled"}), 403
+    success = load_data()
+    return jsonify({
+        "refreshed": success,
+        "data_loaded": data_loaded,
+        "record_count": len(df) if df is not None else 0,
+        "cache_cleared": True
     })
 
 @app.route('/api/data-info')
@@ -338,6 +456,7 @@ def data_info_endpoint():
     })
 
 @app.route('/api/overall_sales_performance')
+@cache_response()
 def get_overall_sales_performance():
     if not data_loaded or df is None:
         return jsonify({
