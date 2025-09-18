@@ -234,6 +234,1218 @@ data_thread.start()
 log_message("📊 Data loading started in background...")
 
 # HTML Templates
+BLOOMBERG_DASHBOARD_TEMPLATE = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sales Analytics | Bloomberg Terminal Style</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* Bloomberg Terminal Color Scheme */
+        :root {
+            --bloomberg-black: #000000;
+            --bloomberg-dark: #1a1a1a;
+            --bloomberg-darker: #0d0d0d;
+            --bloomberg-orange: #ff6600;
+            --bloomberg-yellow: #ffcc00;
+            --bloomberg-green: #00ff00;
+            --bloomberg-red: #ff0066;
+            --bloomberg-blue: #0099ff;
+            --bloomberg-cyan: #00ffff;
+            --bloomberg-white: #ffffff;
+            --bloomberg-gray: #808080;
+            --bloomberg-light-gray: #cccccc;
+            
+            --text-primary: #ffffff;
+            --text-secondary: #cccccc;
+            --text-accent: #ffcc00;
+            --border-color: #333333;
+            --panel-bg: #1a1a1a;
+            --terminal-font: 'Roboto Mono', 'Consolas', monospace;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--terminal-font);
+            background-color: var(--bloomberg-black);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            font-size: 12px;
+        }
+
+        /* Bloomberg Terminal Header */
+        .bloomberg-header {
+            background: linear-gradient(135deg, var(--bloomberg-dark) 0%, var(--bloomberg-darker) 100%);
+            border-bottom: 2px solid var(--bloomberg-orange);
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .bloomberg-logo {
+            color: var(--bloomberg-orange);
+            font-weight: 700;
+            font-size: 1.4em;
+            letter-spacing: 2px;
+        }
+
+        .terminal-title {
+            color: var(--text-accent);
+            font-weight: 500;
+            font-size: 1.1em;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .live-indicator {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            color: var(--bloomberg-green);
+            font-weight: 500;
+        }
+
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--bloomberg-green);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .terminal-time {
+            color: var(--text-secondary);
+            font-size: 0.9em;
+        }
+
+        .terminal-nav {
+            display: flex;
+            gap: 10px;
+        }
+
+        .nav-button {
+            background: var(--bloomberg-dark);
+            border: 1px solid var(--bloomberg-orange);
+            color: var(--text-primary);
+            padding: 5px 12px;
+            text-decoration: none;
+            font-family: var(--terminal-font);
+            font-size: 0.85em;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .nav-button:hover {
+            background: var(--bloomberg-orange);
+            color: var(--bloomberg-black);
+            text-decoration: none;
+        }
+
+        .nav-button.active {
+            background: var(--bloomberg-orange);
+            color: var(--bloomberg-black);
+        }
+
+        /* Main Terminal Container */
+        .terminal-container {
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            height: calc(100vh - 60px);
+            gap: 2px;
+            background: var(--bloomberg-black);
+        }
+
+        /* Left Sidebar - Market Data */
+        .market-sidebar {
+            background: var(--panel-bg);
+            border-right: 2px solid var(--border-color);
+            padding: 15px;
+            overflow-y: auto;
+        }
+
+        .sidebar-section {
+            margin-bottom: 20px;
+        }
+
+        .sidebar-title {
+            color: var(--text-accent);
+            font-weight: 700;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 5px;
+            margin-bottom: 10px;
+        }
+
+        .market-ticker {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 0;
+            font-size: 0.85em;
+            border-bottom: 1px solid #333;
+        }
+
+        .ticker-symbol {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .ticker-price {
+            color: var(--bloomberg-green);
+        }
+
+        .ticker-change {
+            font-size: 0.8em;
+        }
+
+        .ticker-change.positive {
+            color: var(--bloomberg-green);
+        }
+
+        .ticker-change.negative {
+            color: var(--bloomberg-red);
+        }
+
+        .quick-stats {
+            background: var(--bloomberg-darker);
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            margin: 10px 0;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 2px 0;
+            font-size: 0.8em;
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+        }
+
+        .stat-value {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        /* Main Content Area */
+        .main-content {
+            background: var(--bloomberg-black);
+            display: grid;
+            grid-template-rows: auto 1fr;
+            overflow: hidden;
+        }
+
+        /* Command Bar */
+        .command-bar {
+            background: var(--panel-bg);
+            border-bottom: 1px solid var(--border-color);
+            padding: 8px 15px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .command-input {
+            background: var(--bloomberg-darker);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 5px 10px;
+            font-family: var(--terminal-font);
+            font-size: 0.9em;
+            min-width: 200px;
+        }
+
+        .command-input:focus {
+            outline: none;
+            border-color: var(--bloomberg-orange);
+        }
+
+        .command-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .cmd-btn {
+            background: var(--bloomberg-dark);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 4px 8px;
+            font-size: 0.8em;
+            cursor: pointer;
+            font-family: var(--terminal-font);
+        }
+
+        .cmd-btn:hover {
+            background: var(--border-color);
+            color: var(--text-primary);
+        }
+
+        /* Dashboard Grid */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 2px;
+            height: 100%;
+            padding: 2px;
+        }
+
+        .chart-panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .panel-header {
+            background: var(--bloomberg-darker);
+            border-bottom: 1px solid var(--border-color);
+            padding: 8px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .panel-title {
+            color: var(--text-accent);
+            font-weight: 600;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .panel-controls {
+            display: flex;
+            gap: 5px;
+        }
+
+        .panel-btn {
+            background: none;
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 2px 6px;
+            font-size: 0.7em;
+            cursor: pointer;
+            font-family: var(--terminal-font);
+        }
+
+        .panel-btn:hover {
+            color: var(--text-primary);
+            border-color: var(--bloomberg-orange);
+        }
+
+        .panel-content {
+            flex: 1;
+            padding: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Data Tables */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8em;
+        }
+
+        .data-table th {
+            background: var(--bloomberg-darker);
+            color: var(--text-accent);
+            padding: 5px 8px;
+            border: 1px solid var(--border-color);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .data-table td {
+            padding: 4px 8px;
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+        }
+
+        .data-table tr:hover {
+            background: var(--bloomberg-darker);
+        }
+
+        /* Number formatting */
+        .positive {
+            color: var(--bloomberg-green);
+        }
+
+        .negative {
+            color: var(--bloomberg-red);
+        }
+
+        .neutral {
+            color: var(--text-secondary);
+        }
+
+        /* Scrollbars */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bloomberg-darker);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--bloomberg-orange);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1200px) {
+            .terminal-container {
+                grid-template-columns: 200px 1fr;
+            }
+            
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+                grid-template-rows: repeat(4, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .terminal-container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr;
+            }
+            
+            .market-sidebar {
+                height: 200px;
+                overflow-y: auto;
+            }
+        }
+
+        /* Terminal-style animations */
+        .terminal-text {
+            animation: terminal-flicker 0.1s infinite alternate;
+        }
+
+        @keyframes terminal-flicker {
+            0% { opacity: 1; }
+            100% { opacity: 0.98; }
+        }
+
+        /* Advanced Chart Styling */
+        .advanced-chart {
+            background: var(--bloomberg-black);
+            border-radius: 0;
+        }
+
+        /* Bloomberg-style loading */
+        .loading-terminal {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            flex-direction: column;
+            color: var(--text-secondary);
+        }
+
+        .loading-bars {
+            display: flex;
+            gap: 3px;
+            margin-bottom: 10px;
+        }
+
+        .loading-bar {
+            width: 3px;
+            height: 20px;
+            background: var(--bloomberg-orange);
+            animation: loading-wave 1.5s infinite ease-in-out;
+        }
+
+        .loading-bar:nth-child(2) { animation-delay: 0.1s; }
+        .loading-bar:nth-child(3) { animation-delay: 0.2s; }
+        .loading-bar:nth-child(4) { animation-delay: 0.3s; }
+        .loading-bar:nth-child(5) { animation-delay: 0.4s; }
+
+        @keyframes loading-wave {
+            0%, 40%, 100% { transform: scaleY(0.4); opacity: 0.5; }
+            20% { transform: scaleY(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="bloomberg-header">
+        <div class="header-left">
+            <div class="bloomberg-logo">BLOOMBERG</div>
+            <div class="terminal-title">{{ title }} - Sales Analytics Terminal</div>
+        </div>
+        <div class="header-right">
+            <div class="live-indicator">
+                <div class="live-dot"></div>
+                <span>LIVE</span>
+            </div>
+            <div class="terminal-time" id="terminalClock"></div>
+            <div class="terminal-nav">
+                <a href="/operational" class="nav-button {{ 'active' if title == 'Operational Analytics' else '' }}">OPR</a>
+                <a href="/strategic" class="nav-button {{ 'active' if title == 'Strategic Analytics' else '' }}">STR</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="terminal-container">
+        <!-- Market Data Sidebar -->
+        <div class="market-sidebar">
+            <div class="sidebar-section">
+                <div class="sidebar-title">System Status</div>
+                <div class="quick-stats">
+                    <div class="stat-item">
+                        <span class="stat-label">Records:</span>
+                        <span class="stat-value">{{ "{:,}".format(record_count) if record_count else '0' }}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Status:</span>
+                        <span class="stat-value {{ 'positive' if data_loaded else 'negative' }}">{{ 'ONLINE' if data_loaded else 'OFFLINE' }}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Memory:</span>
+                        <span class="stat-value">{{ memory_usage or 'N/A' }} MB</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Uptime:</span>
+                        <span class="stat-value positive">99.9%</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">Market Indices</div>
+                <div class="market-ticker">
+                    <span class="ticker-symbol">SPX</span>
+                    <div>
+                        <span class="ticker-price">4,350.65</span>
+                        <div class="ticker-change positive">+1.2%</div>
+                    </div>
+                </div>
+                <div class="market-ticker">
+                    <span class="ticker-symbol">NASDAQ</span>
+                    <div>
+                        <span class="ticker-price">13,567.98</span>
+                        <div class="ticker-change positive">+0.8%</div>
+                    </div>
+                </div>
+                <div class="market-ticker">
+                    <span class="ticker-symbol">DOW</span>
+                    <div>
+                        <span class="ticker-price">34,789.12</span>
+                        <div class="ticker-change negative">-0.3%</div>
+                    </div>
+                </div>
+                <div class="market-ticker">
+                    <span class="ticker-symbol">VIX</span>
+                    <div>
+                        <span class="ticker-price">18.45</span>
+                        <div class="ticker-change negative">-2.1%</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">Key Metrics</div>
+                {% if title == 'Operational Analytics' %}
+                <div class="market-ticker">
+                    <span class="ticker-symbol">REV</span>
+                    <div>
+                        <span class="ticker-price">$1.24M</span>
+                        <div class="ticker-change positive">+7.8%</div>
+                    </div>
+                </div>
+                <div class="market-ticker">
+                    <span class="ticker-symbol">ORD</span>
+                    <div>
+                        <span class="ticker-price">2,456</span>
+                        <div class="ticker-change positive">+12.3%</div>
+                    </div>
+                </div>
+                <div class="market-ticker">
+                    <span class="ticker-symbol">AOV</span>
+                    <div>
+                        <span class="ticker-price">$505</span>
+                        <div class="ticker-change neutral">+0.2%</div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="market-ticker">
+                    <span class="ticker-symbol">MKT</span>
+                    <div>
+                        <span class="ticker-price">23.4%</span>
+                        <div class="ticker-change positive">+1.3%</div>
+                    </div>
+                </div>
+                <div class="market-ticker">
+                    <span class="ticker-symbol">ROI</span>
+                    <div>
+                        <span class="ticker-price">24.7%</span>
+                        <div class="ticker-change positive">+1.5%</div>
+                    </div>
+                </div>
+                <div class="market-ticker">
+                    <span class="ticker-symbol">SKU</span>
+                    <div>
+                        <span class="ticker-price">84</span>
+                        <div class="ticker-change positive">+6.3%</div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">Watchlist</div>
+                <div class="market-ticker">
+                    <span class="ticker-symbol">AMZN</span>
+                    <div>
+                        <span class="ticker-price">3,245.67</span>
+                        <div class="ticker-change positive">+2.1%</div>
+                    </div>
+                </div>
+                <div class="market-ticker">
+                    <span class="ticker-symbol">MSFT</span>
+                    <div>
+                        <span class="ticker-price">338.45</span>
+                        <div class="ticker-change positive">+1.5%</div>
+                    </div>
+                </div>
+                <div class="market-ticker">
+                    <span class="ticker-symbol">GOOGL</span>
+                    <div>
+                        <span class="ticker-price">2,756.89</span>
+                        <div class="ticker-change negative">-0.7%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <!-- Command Bar -->
+            <div class="command-bar">
+                <input type="text" class="command-input" placeholder="Enter command (e.g., HELP, REFRESH, EXPORT)" id="commandInput">
+                <div class="command-buttons">
+                    <button class="cmd-btn" onclick="executeCommand('HELP')">HELP</button>
+                    <button class="cmd-btn" onclick="executeCommand('REFRESH')">REFRESH</button>
+                    <button class="cmd-btn" onclick="executeCommand('EXPORT')">EXPORT</button>
+                    <button class="cmd-btn" onclick="executeCommand('SETTINGS')">SETTINGS</button>
+                </div>
+            </div>
+
+            {% if data_loaded %}
+            <!-- Dashboard Grid -->
+            <div class="dashboard-grid">
+                {% if title == 'Operational Analytics' %}
+                <!-- Operational Panels -->
+                <div class="chart-panel">
+                    <div class="panel-header">
+                        <div class="panel-title">Revenue Performance</div>
+                        <div class="panel-controls">
+                            <button class="panel-btn">1D</button>
+                            <button class="panel-btn">1W</button>
+                            <button class="panel-btn">1M</button>
+                            <button class="panel-btn">1Y</button>
+                        </div>
+                    </div>
+                    <div class="panel-content">
+                        <div class="chart-wrapper">
+                            <canvas id="revenueChart" class="advanced-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chart-panel">
+                    <div class="panel-header">
+                        <div class="panel-title">Growth Momentum</div>
+                        <div class="panel-controls">
+                            <button class="panel-btn">LINEAR</button>
+                            <button class="panel-btn">LOG</button>
+                        </div>
+                    </div>
+                    <div class="panel-content">
+                        <div class="chart-wrapper">
+                            <canvas id="growthChart" class="advanced-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chart-panel">
+                    <div class="panel-header">
+                        <div class="panel-title">Product Performance Matrix</div>
+                        <div class="panel-controls">
+                            <button class="panel-btn">PIE</button>
+                            <button class="panel-btn">BAR</button>
+                        </div>
+                    </div>
+                    <div class="panel-content">
+                        <div class="chart-wrapper">
+                            <canvas id="productMatrix" class="advanced-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chart-panel">
+                    <div class="panel-header">
+                        <div class="panel-title">Real-Time Orders</div>
+                        <div class="panel-controls">
+                            <button class="panel-btn">TABLE</button>
+                            <button class="panel-btn">CHART</button>
+                        </div>
+                    </div>
+                    <div class="panel-content">
+                        <table class="data-table" id="ordersTable">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Product</th>
+                                    <th>Amount</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ordersTableBody">
+                                <!-- Data populated by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% else %}
+                <!-- Strategic Panels -->
+                <div class="chart-panel">
+                    <div class="panel-header">
+                        <div class="panel-title">Partner Analysis</div>
+                        <div class="panel-controls">
+                            <button class="panel-btn">YTD</button>
+                            <button class="panel-btn">QTD</button>
+                        </div>
+                    </div>
+                    <div class="panel-content">
+                        <div class="chart-wrapper">
+                            <canvas id="partnerChart" class="advanced-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chart-panel">
+                    <div class="panel-header">
+                        <div class="panel-title">Seasonal Trends</div>
+                        <div class="panel-controls">
+                            <button class="panel-btn">HEAT</button>
+                            <button class="panel-btn">LINE</button>
+                        </div>
+                    </div>
+                    <div class="panel-content">
+                        <div class="chart-wrapper">
+                            <canvas id="seasonalChart" class="advanced-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chart-panel">
+                    <div class="panel-header">
+                        <div class="panel-title">Portfolio Mix</div>
+                        <div class="panel-controls">
+                            <button class="panel-btn">TREE</button>
+                            <button class="panel-btn">PIE</button>
+                        </div>
+                    </div>
+                    <div class="panel-content">
+                        <div class="chart-wrapper">
+                            <canvas id="portfolioChart" class="advanced-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chart-panel">
+                    <div class="panel-header">
+                        <div class="panel-title">Risk Metrics</div>
+                        <div class="panel-controls">
+                            <button class="panel-btn">LIVE</button>
+                            <button class="panel-btn">HIST</button>
+                        </div>
+                    </div>
+                    <div class="panel-content">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Metric</th>
+                                    <th>Current</th>
+                                    <th>Target</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Volatility</td>
+                                    <td class="positive">12.3%</td>
+                                    <td>15.0%</td>
+                                    <td class="positive">✓ GOOD</td>
+                                </tr>
+                                <tr>
+                                    <td>Sharpe Ratio</td>
+                                    <td class="positive">1.85</td>
+                                    <td>1.50</td>
+                                    <td class="positive">✓ EXCEED</td>
+                                </tr>
+                                <tr>
+                                    <td>Max Drawdown</td>
+                                    <td class="negative">-8.2%</td>
+                                    <td>-10.0%</td>
+                                    <td class="positive">✓ GOOD</td>
+                                </tr>
+                                <tr>
+                                    <td>Beta</td>
+                                    <td class="neutral">0.92</td>
+                                    <td>1.00</td>
+                                    <td class="neutral">→ WATCH</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            {% else %}
+            <!-- No Data State -->
+            <div class="dashboard-grid">
+                <div class="chart-panel">
+                    <div class="panel-header">
+                        <div class="panel-title">System Status</div>
+                    </div>
+                    <div class="panel-content">
+                        <div class="loading-terminal">
+                            <div class="loading-bars">
+                                <div class="loading-bar"></div>
+                                <div class="loading-bar"></div>
+                                <div class="loading-bar"></div>
+                                <div class="loading-bar"></div>
+                                <div class="loading-bar"></div>
+                            </div>
+                            <div>LOADING DATA FEED...</div>
+                            <div style="font-size: 0.8em; color: var(--text-secondary); margin-top: 5px;">
+                                Connecting to data sources...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        // Bloomberg-style chart configuration
+        Chart.defaults.font.family = "'Roboto Mono', 'Consolas', monospace";
+        Chart.defaults.font.size = 10;
+        Chart.defaults.color = '#cccccc';
+        Chart.defaults.backgroundColor = '#1a1a1a';
+
+        // Bloomberg color palette
+        const bloombergColors = {
+            orange: '#ff6600',
+            yellow: '#ffcc00',
+            green: '#00ff00',
+            red: '#ff0066',
+            blue: '#0099ff',
+            cyan: '#00ffff',
+            white: '#ffffff',
+            gray: '#808080'
+        };
+
+        // Terminal clock
+        function updateClock() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('en-US', { 
+                hour12: false, 
+                timeZone: 'America/New_York' 
+            });
+            const dateStr = now.toLocaleDateString('en-US', { 
+                month: 'short', 
+                day: 'numeric',
+                timeZone: 'America/New_York'
+            });
+            document.getElementById('terminalClock').textContent = `${dateStr} ${timeStr} EDT`;
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // Command execution
+        function executeCommand(cmd) {
+            const input = document.getElementById('commandInput');
+            input.value = cmd;
+            console.log(`Executing command: ${cmd}`);
+            
+            switch(cmd) {
+                case 'HELP':
+                    alert('Available commands:\nREFRESH - Update all data\nEXPORT - Download data\nSETTINGS - Configure dashboard\nHELP - Show this help');
+                    break;
+                case 'REFRESH':
+                    location.reload();
+                    break;
+                case 'EXPORT':
+                    alert('Export functionality would download current data');
+                    break;
+                case 'SETTINGS':
+                    alert('Settings panel would open configuration options');
+                    break;
+            }
+            input.value = '';
+        }
+
+        // Command input handler
+        document.getElementById('commandInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                executeCommand(this.value.toUpperCase());
+            }
+        });
+
+        {% if data_loaded %}
+        // Chart data
+        const chartData = {{ chart_data | safe if chart_data else '{}' }};
+
+        {% if title == 'Operational Analytics' %}
+        // Revenue Performance Chart
+        new Chart(document.getElementById('revenueChart'), {
+            type: 'line',
+            data: {
+                labels: ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'],
+                datasets: [{
+                    label: 'Revenue ($)',
+                    data: [125000, 132000, 145000, 158000, 162000, 171000, 185000, 192000],
+                    borderColor: bloombergColors.green,
+                    backgroundColor: bloombergColors.green + '20',
+                    borderWidth: 2,
+                    tension: 0.1,
+                    fill: true,
+                    pointBackgroundColor: bloombergColors.green,
+                    pointBorderColor: '#000000',
+                    pointRadius: 3
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { intersect: false },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#000000',
+                        titleColor: bloombergColors.yellow,
+                        bodyColor: bloombergColors.white,
+                        borderColor: bloombergColors.orange,
+                        borderWidth: 1
+                    }
+                },
+                scales: {
+                    x: { 
+                        grid: { color: '#333333' },
+                        ticks: { color: bloombergColors.gray }
+                    },
+                    y: { 
+                        grid: { color: '#333333' },
+                        ticks: { 
+                            color: bloombergColors.gray,
+                            callback: value => '$' + value.toLocaleString()
+                        }
+                    }
+                }
+            }
+        });
+
+        // Growth Chart
+        new Chart(document.getElementById('growthChart'), {
+            type: 'bar',
+            data: {
+                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                datasets: [{
+                    label: 'Growth %',
+                    data: [5.2, 8.1, 12.3, 7.8, 15.6, 18.9],
+                    backgroundColor: function(context) {
+                        const value = context.parsed.y;
+                        return value > 10 ? bloombergColors.green : 
+                               value > 5 ? bloombergColors.yellow : bloombergColors.red;
+                    },
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#000000',
+                        titleColor: bloombergColors.yellow,
+                        bodyColor: bloombergColors.white,
+                        callbacks: {
+                            label: (context) => `Growth: ${context.parsed.y}%`
+                        }
+                    }
+                },
+                scales: {
+                    x: { 
+                        grid: { color: '#333333' },
+                        ticks: { color: bloombergColors.gray }
+                    },
+                    y: { 
+                        grid: { color: '#333333' },
+                        ticks: { 
+                            color: bloombergColors.gray,
+                            callback: value => value + '%'
+                        }
+                    }
+                }
+            }
+        });
+
+        // Product Matrix
+        new Chart(document.getElementById('productMatrix'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Electronics', 'Clothing', 'Books', 'Home & Garden', 'Sports'],
+                datasets: [{
+                    data: [35, 25, 20, 15, 5],
+                    backgroundColor: [
+                        bloombergColors.orange,
+                        bloombergColors.yellow,
+                        bloombergColors.green,
+                        bloombergColors.blue,
+                        bloombergColors.cyan
+                    ],
+                    borderWidth: 0,
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { 
+                        position: 'bottom',
+                        labels: { 
+                            color: bloombergColors.gray,
+                            font: { size: 9 },
+                            padding: 10
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: '#000000',
+                        titleColor: bloombergColors.yellow,
+                        bodyColor: bloombergColors.white
+                    }
+                }
+            }
+        });
+
+        // Populate orders table
+        const ordersData = [
+            ['14:32:45', 'iPhone 13', '$999', 'FILLED'],
+            ['14:31:22', 'MacBook Pro', '$2,499', 'PENDING'],
+            ['14:30:15', 'AirPods', '$179', 'FILLED'],
+            ['14:29:08', 'iPad Air', '$599', 'CANCELLED'],
+            ['14:28:33', 'Apple Watch', '$399', 'FILLED']
+        ];
+
+        const tableBody = document.getElementById('ordersTableBody');
+        ordersData.forEach(row => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="color: ${bloombergColors.cyan}">${row[0]}</td>
+                <td>${row[1]}</td>
+                <td style="color: ${bloombergColors.yellow}">${row[2]}</td>
+                <td style="color: ${row[3] === 'FILLED' ? bloombergColors.green : row[3] === 'PENDING' ? bloombergColors.yellow : bloombergColors.red}">${row[3]}</td>
+            `;
+            tableBody.appendChild(tr);
+        });
+
+        {% else %}
+        // Strategic Charts
+        // Partner Analysis
+        new Chart(document.getElementById('partnerChart'), {
+            type: 'bar',
+            data: {
+                labels: ['Amazon', 'Walmart', 'Target', 'Best Buy', 'Costco'],
+                datasets: [{
+                    label: 'Revenue ($M)',
+                    data: [4.5, 3.2, 2.8, 1.9, 1.2],
+                    backgroundColor: bloombergColors.blue,
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#000000',
+                        titleColor: bloombergColors.yellow,
+                        bodyColor: bloombergColors.white
+                    }
+                },
+                scales: {
+                    x: { 
+                        grid: { color: '#333333' },
+                        ticks: { 
+                            color: bloombergColors.gray,
+                            callback: value => '$' + value + 'M'
+                        }
+                    },
+                    y: { 
+                        grid: { color: '#333333' },
+                        ticks: { color: bloombergColors.gray }
+                    }
+                }
+            }
+        });
+
+        // Seasonal Chart
+        new Chart(document.getElementById('seasonalChart'), {
+            type: 'line',
+            data: {
+                labels: ['Q1', 'Q2', 'Q3', 'Q4'],
+                datasets: [{
+                    label: 'Seasonal Revenue',
+                    data: [380, 420, 350, 480],
+                    borderColor: bloombergColors.orange,
+                    backgroundColor: bloombergColors.orange + '20',
+                    borderWidth: 3,
+                    tension: 0.4,
+                    fill: true,
+                    pointBackgroundColor: bloombergColors.orange,
+                    pointBorderColor: '#000000',
+                    pointRadius: 5
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#000000',
+                        titleColor: bloombergColors.yellow,
+                        bodyColor: bloombergColors.white
+                    }
+                },
+                scales: {
+                    x: { 
+                        grid: { color: '#333333' },
+                        ticks: { color: bloombergColors.gray }
+                    },
+                    y: { 
+                        grid: { color: '#333333' },
+                        ticks: { 
+                            color: bloombergColors.gray,
+                            callback: value => '$' + value + 'K'
+                        }
+                    }
+                }
+            }
+        });
+
+        // Portfolio Chart
+        new Chart(document.getElementById('portfolioChart'), {
+            type: 'pie',
+            data: {
+                labels: ['Premium', 'Standard', 'Budget'],
+                datasets: [{
+                    data: [40, 45, 15],
+                    backgroundColor: [
+                        bloombergColors.green,
+                        bloombergColors.yellow,
+                        bloombergColors.red
+                    ],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { 
+                        position: 'bottom',
+                        labels: { 
+                            color: bloombergColors.gray,
+                            font: { size: 9 },
+                            padding: 10
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: '#000000',
+                        titleColor: bloombergColors.yellow,
+                        bodyColor: bloombergColors.white
+                    }
+                }
+            }
+        });
+        {% endif %}
+        {% endif %}
+
+        // Real-time updates simulation
+        setInterval(() => {
+            // Simulate real-time data updates
+            const elements = document.querySelectorAll('.ticker-price');
+            elements.forEach(el => {
+                if (Math.random() > 0.7) {
+                    el.style.backgroundColor = bloombergColors.orange;
+                    setTimeout(() => {
+                        el.style.backgroundColor = 'transparent';
+                    }, 500);
+                }
+            });
+        }, 3000);
+    </script>
+</body>
+</html>
+"""
+
 TABLEAU_DASHBOARD_TEMPLATE = """
 <!DOCTYPE html>
 <html>
@@ -2060,7 +3272,7 @@ def generate_chart_data(dashboard_type="operational"):
 def operational():
     try:
         chart_data = generate_chart_data("operational")
-        return render_template_string(TABLEAU_DASHBOARD_TEMPLATE,
+        return render_template_string(BLOOMBERG_DASHBOARD_TEMPLATE,
             title="Operational Analytics",
             subtitle="Real-time Performance Monitoring & Daily Operations", 
             data_loaded=data_loaded,
@@ -2110,7 +3322,7 @@ def dashboard_test():
 def strategic():
     try:
         chart_data = generate_chart_data("strategic")
-        return render_template_string(TABLEAU_DASHBOARD_TEMPLATE,
+        return render_template_string(BLOOMBERG_DASHBOARD_TEMPLATE,
             title="Strategic Analytics", 
             subtitle="Long-term Business Intelligence & Partnership Analysis",
             data_loaded=data_loaded,
